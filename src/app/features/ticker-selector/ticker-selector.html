@@ -1,0 +1,48 @@
+<div class="ticker-selector">
+  <div class="search-wrapper">
+    <span class="search-icon">🔍</span>
+    <input
+      type="text"
+      [ngModel]="searchQuery()"
+      (ngModelChange)="onInputChange($event)"
+      (focus)="onFocus()"
+      (blur)="onBlur()"
+      [placeholder]="'ticker.searchPlaceholder' | translate"
+      class="search-input"
+    />
+    @if (searchQuery()) {
+      <button class="clear-btn" (mousedown)="$event.preventDefault(); searchQuery.set(''); filteredSymbols.set([])">
+        ✕
+      </button>
+    }
+  </div>
+
+  @if (isDropdownOpen() && filteredSymbols().length > 0) {
+    <ul class="dropdown">
+      @for (symbol of filteredSymbols(); track symbol) {
+        <li (mousedown)="selectSymbol(symbol)" class="dropdown-item">
+          {{ symbol }}
+        </li>
+      }
+    </ul>
+  }
+
+  <!-- Watchlist -->
+  @if (store.watchlist().length > 0) {
+    <div class="watchlist">
+      <h3 class="watchlist-title">{{ 'ticker.watchlist' | translate }}</h3>
+      <div class="watchlist-items">
+        @for (ticker of store.watchlist(); track ticker) {
+          <button
+            class="watchlist-chip"
+            [class.active]="store.selectedTicker() === ticker"
+            (click)="selectSymbol(ticker)"
+          >
+            {{ ticker }}
+            <span class="remove-btn" (mousedown)="$event.stopPropagation(); store.removeFromWatchlist(ticker)">✕</span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

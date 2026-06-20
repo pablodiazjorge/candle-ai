@@ -1,0 +1,8 @@
+<div class="chart-container" #chartContainer>
+  @if (candleData().length === 0) {
+    <div class="chart-placeholder">
+      <span class="placeholder-icon">📈</span>
+      <p>{{ 'chart.selectTicker' | translate }}</p>
+    </div>
+  }
+</div>

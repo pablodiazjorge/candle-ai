@@ -1,0 +1,35 @@
+{
+  "app": {
+    "title": "Candle AI",
+    "subtitle": "Análisis de Trading",
+    "toggleSidebar": "Alternar panel lateral",
+    "info": "Información",
+    "ticker": "Símbolo",
+    "lastPrice": "Último Precio",
+    "change": "Cambio",
+    "status": "Estado",
+    "analyzing": "Analizando {{ ticker }}...",
+    "waitingSelection": "Selecciona un ticker para comenzar"
+  },
+  "ticker": {
+    "searchPlaceholder": "Buscar símbolo...",
+    "watchlist": "Favoritos"
+  },
+  "chart": {
+    "selectTicker": "Selecciona un ticker para mostrar el gráfico"
+  },
+  "llm": {
+    "settings": "Configuración LLM",
+    "provider": "Proveedor",
+    "baseUrl": "URL Base",
+    "apiKey": "API Key",
+    "model": "Modelo",
+    "maxTokens": "Tokens Máx.",
+    "temperature": "Temperatura",
+    "testConnection": "Probar Conexión",
+    "testing": "Probando",
+    "connectionOk": "Conexión exitosa ✓",
+    "connectionFailed": "Conexión fallida ✗",
+    "localInfo": "Tip: Ejecuta un modelo local con llama.cpp (server) u Ollama. Usa http://localhost:PUERTO/v1 como URL base."
+  }
+}
