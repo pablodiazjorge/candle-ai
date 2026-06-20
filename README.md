@@ -74,17 +74,3 @@ Settings are persisted in `localStorage`. No data is ever sent to any server exc
 ## i18n
 
 Translation files at `public/i18n/{en,es}.json`. Runtime switching via ngx-translate.
-
-## License
-
-MIT
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
