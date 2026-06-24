@@ -1,4 +1,4 @@
-import { Component, inject, signal, output } from '@angular/core';
+import { Component, inject, signal, output, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TickerStore } from '../../core/state/ticker.store';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -45,6 +45,23 @@ export class TickerSelector {
   filteredSymbols = signal<string[]>([]);
   isDropdownOpen = signal(false);
 
+  /** Watchlist management modal */
+  readonly watchlistModalOpen = signal(false);
+  readonly watchlistFilter = signal('');
+
+  /** All symbols with their watchlist status */
+  readonly allSymbolsWithStatus = computed(() => {
+    const watchlist = this.store.watchlist();
+    const filter = this.watchlistFilter().toUpperCase();
+    const symbols = filter
+      ? POPULAR_SYMBOLS.filter((s) => s.includes(filter))
+      : POPULAR_SYMBOLS;
+    return symbols.map((s) => ({
+      symbol: s,
+      inWatchlist: watchlist.includes(s),
+    }));
+  });
+
   onInputChange(query: string): void {
     this.searchQuery.set(query);
     const upper = query.toUpperCase();
@@ -71,6 +88,13 @@ export class TickerSelector {
     }
   }
 
+  /** Add a symbol to watchlist without selecting it */
+  addToWatchlist(symbol: string): void {
+    if (!this.store.watchlist().includes(symbol)) {
+      this.store.addToWatchlist(symbol);
+    }
+  }
+
   onFocus(): void {
     if (this.searchQuery().length === 0) {
       this.filteredSymbols.set(POPULAR_SYMBOLS.slice(0, 8));
@@ -81,5 +105,55 @@ export class TickerSelector {
   onBlur(): void {
     // Delay to allow click on dropdown items
     setTimeout(() => this.isDropdownOpen.set(false), 200);
+  }
+
+  /* ─── Watchlist Modal ────────────────────────────────────────── */
+
+  openWatchlistModal(): void {
+    this.watchlistFilter.set('');
+    this.watchlistModalOpen.set(true);
+    setTimeout(() => {
+      const firstCheckbox = document.querySelector<HTMLElement>('.watchlist-modal-content input[type="checkbox"]');
+      firstCheckbox?.focus();
+    });
+  }
+
+  closeWatchlistModal(): void {
+    this.watchlistModalOpen.set(false);
+    setTimeout(() => {
+      const addBtn = document.querySelector<HTMLElement>('.watchlist-add-btn');
+      addBtn?.focus();
+    });
+  }
+
+  toggleWatchlistSymbol(symbol: string): void {
+    if (this.store.watchlist().includes(symbol)) {
+      this.store.removeFromWatchlist(symbol);
+    } else {
+      this.store.addToWatchlist(symbol);
+    }
+  }
+
+  selectAllWatchlist(): void {
+    for (const s of this.allSymbolsWithStatus()) {
+      if (!s.inWatchlist) {
+        this.store.addToWatchlist(s.symbol);
+      }
+    }
+  }
+
+  deselectAllWatchlist(): void {
+    for (const s of this.allSymbolsWithStatus()) {
+      if (s.inWatchlist) {
+        this.store.removeFromWatchlist(s.symbol);
+      }
+    }
+  }
+
+  onWatchlistModalKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeWatchlistModal();
+    }
   }
 }

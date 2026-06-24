@@ -1,6 +1,6 @@
-<div class="indicator-panel">
+<div class="indicator-panel" role="region" aria-labelledby="indicators-panel-title">
   <div class="panel-header">
-    <h3 class="panel-title">{{ 'indicator.title' | translate }}</h3>
+    <h3 id="indicators-panel-title" class="panel-title">{{ 'indicator.title' | translate }}</h3>
     @if (hasActiveIndicators) {
       <button class="clear-btn" (click)="disableAll()" [attr.aria-label]="'indicator.clearAll' | translate">
         {{ 'indicator.clearAll' | translate }}
@@ -8,23 +8,25 @@
     }
   </div>
 
-  <div class="toggle-list">
+  <div class="toggle-list" role="list">
     @for (t of toggles; track t.key) {
-      <label class="toggle-row" [class.active]="store.activeIndicators()[t.key]">
+      <div class="toggle-row" role="listitem">
         <div class="toggle-info">
-          <span class="toggle-label">{{ t.label | translate }}</span>
-          <span class="toggle-desc">{{ t.description | translate }}</span>
+          <span class="toggle-label" [id]="'toggle-label-' + t.key">{{ t.label | translate }}</span>
+          <span class="toggle-desc" [id]="'toggle-desc-' + t.key">{{ t.description | translate }}</span>
         </div>
         <div class="toggle-switch">
           <input
             type="checkbox"
+            role="switch"
             [checked]="store.activeIndicators()[t.key]"
             (change)="toggle(t.key)"
-            class="toggle-input"
+            [attr.aria-labelledby]="'toggle-label-' + t.key"
+            [attr.aria-describedby]="'toggle-desc-' + t.key"
           />
-          <span class="toggle-slider"></span>
+          <span class="toggle-slider" aria-hidden="true"></span>
         </div>
-      </label>
+      </div>
     }
   </div>
 </div>

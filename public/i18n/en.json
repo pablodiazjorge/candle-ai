@@ -3,6 +3,7 @@
     "title": "Candle AI",
     "subtitle": "Trading Analysis",
     "toggleSidebar": "Toggle sidebar",
+    "selectLanguage": "Select language",
     "info": "Information",
     "ticker": "Symbol",
     "lastPrice": "Last Price",
@@ -22,7 +23,13 @@
   },
   "ticker": {
     "searchPlaceholder": "Search symbol...",
-    "watchlist": "Watchlist"
+    "watchlist": "Watchlist",
+    "manageWatchlist": "Manage Watchlist",
+    "filterPlaceholder": "Filter symbols...",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "done": "Done",
+    "noWatchlist": "No symbols in watchlist"
   },
   "chart": {
     "selectTicker": "Select a ticker to display chart"
@@ -34,12 +41,17 @@
     "apiKey": "API Key",
     "model": "Model",
     "maxTokens": "Max Tokens",
+    "maxTokensHint": "Max 8192",
     "temperature": "Temperature",
+    "temperatureHint": "0.0 – 2.0",
     "testConnection": "Test Connection",
     "testing": "Testing",
     "connectionOk": "Connection successful ✓",
     "connectionFailed": "Connection failed ✗",
-    "localInfo": "Tip: Run a local model with llama.cpp (server) or Ollama. Use http://localhost:PORT/v1 as the base URL."
+    "localInfo": "Tip: Run a local model with llama.cpp (server) or Ollama. Use http://localhost:PORT/v1 as the base URL.",
+    "optional": "optional",
+    "connection": "Connection",
+    "modelConfig": "Model Configuration"
   },
   "indicator": {
     "title": "Indicators",
@@ -96,6 +108,7 @@
     "toggle": "Toggle panel",
     "notConfigured": "Configure LLM in settings",
     "empty": "Click \"Run Analysis\" to get AI-powered insights.",
+    "complete": "Analysis complete",
     "generated": "Generated",
     "trend": "Trend",
     "levels": "Key Levels",

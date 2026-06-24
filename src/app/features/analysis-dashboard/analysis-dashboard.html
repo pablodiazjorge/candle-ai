@@ -1,25 +1,39 @@
-<div class="analysis-dashboard" [class.collapsed]="!isOpen()">
+<div class="analysis-dashboard" [class.collapsed]="!isOpen()" role="region" aria-labelledby="analysis-dashboard-title">
+  <!-- Screen-reader-only status announcements -->
+  <div class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+    @if (isAnalyzing) {
+      {{ 'analysis.analyzing' | translate }} {{ store.selectedTicker() }}...
+    } @else if (analysis) {
+      {{ 'analysis.complete' | translate }} — {{ 'analysis.' + analysis.trend.direction | translate }}
+    }
+  </div>
+
   <!-- Header -->
   <div class="dashboard-header">
     <div class="header-left">
-      <h2 class="dashboard-title">{{ 'analysis.title' | translate }}</h2>
+      <h2 id="analysis-dashboard-title" class="dashboard-title">{{ 'analysis.title' | translate }}</h2>
       @if (isAnalyzing) {
-        <span class="analyzing-badge">{{ 'analysis.analyzing' | translate }}...</span>
+        <span class="analyzing-badge" role="status">
+          <span class="spinner" aria-hidden="true"></span>
+          {{ 'analysis.analyzing' | translate }}...
+        </span>
       }
     </div>
     <div class="header-actions">
       @if (isConfigured) {
-        <button class="btn-analyze" (click)="runAnalysis()" [disabled]="isAnalyzing || !store.hasTicker()">
+        <button class="btn-analyze" (click)="runAnalysis()" [disabled]="isAnalyzing || !store.hasTicker()" [attr.aria-label]="analysis ? ('analysis.refresh' | translate) : ('analysis.run' | translate)">
           @if (isAnalyzing) {
-            <span class="spinner"></span>
+            <span class="spinner" aria-hidden="true"></span>
+          } @else {
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2v12l10-6z"/></svg>
           }
           {{ isAnalyzing ? ('analysis.analyzing' | translate) : (analysis ? ('analysis.refresh' | translate) : ('analysis.run' | translate)) }}
         </button>
       } @else {
         <span class="config-warning">{{ 'analysis.notConfigured' | translate }}</span>
       }
-      <button class="btn-toggle" (click)="toggle()" [attr.aria-label]="'analysis.toggle' | translate">
-        {{ isOpen() ? '▲' : '▼' }}
+      <button class="btn-toggle" (click)="toggle()" [attr.aria-label]="'analysis.toggle' | translate" [attr.aria-expanded]="isOpen()">
+        <span aria-hidden="true">{{ isOpen() ? '▲' : '▼' }}</span>
       </button>
     </div>
   </div>
@@ -104,7 +118,8 @@
       </section>
     </div>
   } @else if (isOpen() && !analysis && !isAnalyzing && isConfigured && store.hasTicker()) {
-    <div class="dashboard-empty">
+    <div class="dashboard-empty" role="region" aria-label="AI Analysis empty state">
+      <div class="dashboard-empty-icon" aria-hidden="true">🧠</div>
       <p>{{ 'analysis.empty' | translate }}</p>
     </div>
   }

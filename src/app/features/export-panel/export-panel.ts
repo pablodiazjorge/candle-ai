@@ -11,7 +11,7 @@ import { PineScriptService } from '../../core/services/pine-script.service';
   styleUrl: './export-panel.css',
 })
 export class ExportPanel {
-  private readonly store = inject(TickerStore);
+  readonly store = inject(TickerStore);
   private readonly pineScript = inject(PineScriptService);
 
   readonly isOpen = signal(false);

@@ -1,8 +1,11 @@
 <div class="app-layout">
+  <!-- Skip to main content link for keyboard users -->
+  <a href="#main-content" class="visually-hidden" (click)="skipToMain($event)">Skip to main content</a>
+
   <!-- Top Bar -->
-  <header class="top-bar">
-    <button class="menu-btn" (click)="toggleSidebar()" [attr.aria-label]="'app.toggleSidebar' | translate">
-      ☰
+  <header class="top-bar" role="banner">
+    <button class="menu-btn" (click)="toggleSidebar()" [attr.aria-label]="'app.toggleSidebar' | translate" [attr.aria-expanded]="isSidebarOpen">
+      <span aria-hidden="true">☰</span>
     </button>
     <h1 class="app-title">Candle AI</h1>
     <span class="app-subtitle">Trading Analysis</span>
@@ -14,20 +17,20 @@
 
     <!-- Theme toggle -->
     <button class="theme-toggle-btn" (click)="toggleTheme()" [attr.aria-label]="themeLabel">
-      {{ isDarkTheme ? '☀️' : '🌙' }}
+      <span aria-hidden="true">{{ isDarkTheme ? '☀️' : '🌙' }}</span>
     </button>
 
     <!-- Language switcher -->
-    <div class="lang-switcher">
-      <button class="lang-btn" [class.active]="currentLang === 'en'" (click)="switchLanguage('en')">EN</button>
-      <button class="lang-btn" [class.active]="currentLang === 'es'" (click)="switchLanguage('es')">ES</button>
+    <div class="lang-switcher" role="group" [attr.aria-label]="'app.selectLanguage' | translate">
+      <button class="lang-btn" [attr.aria-pressed]="currentLang === 'en'" (click)="switchLanguage('en')" lang="en">EN</button>
+      <button class="lang-btn" [attr.aria-pressed]="currentLang === 'es'" (click)="switchLanguage('es')" lang="es">ES</button>
     </div>
 
     <!-- Timeframe selector -->
     @if (store.hasTicker()) {
-      <div class="timeframe-bar">
+      <div class="timeframe-bar" role="group" aria-label="Timeframe selection">
         @for (tf of timeframes; track tf) {
-          <button class="tf-btn" [class.active]="store.timeframe() === tf" (click)="store.setTimeframe($any(tf))">{{ tf }}</button>
+          <button class="tf-btn" [attr.aria-pressed]="store.timeframe() === tf" (click)="store.setTimeframe($any(tf))">{{ tf }}</button>
         }
       </div>
     }
@@ -36,13 +39,13 @@
   <!-- Main Content -->
   <div class="main-content">
     <!-- Sidebar -->
-    <aside class="sidebar" [class.collapsed]="!isSidebarOpen">
+    <aside class="sidebar" [class.collapsed]="!isSidebarOpen" aria-label="Trading instrument panel">
       <div class="sidebar-scroll">
       <app-ticker-selector />
 
       @if (store.hasTicker()) {
-        <div class="sidebar-section">
-          <h3 class="section-title">{{ 'app.info' | translate }}</h3>
+        <section class="sidebar-section" aria-labelledby="info-heading">
+          <h2 id="info-heading" class="section-title">{{ 'app.info' | translate }}</h2>
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">{{ 'app.ticker' | translate }}</span>
@@ -61,37 +64,37 @@
               </div>
             }
           </div>
-        </div>
+        </section>
 
-        <div class="sidebar-section">
+        <section class="sidebar-section" aria-labelledby="indicators-heading">
           <app-indicator-panel (indicatorsChanged)="onIndicatorsChanged($event)" />
-        </div>
+        </section>
 
-        <div class="sidebar-section">
+        <section class="sidebar-section" aria-labelledby="patterns-heading">
           <app-pattern-overlay [patterns]="store.patterns()" />
-        </div>
+        </section>
       }
 
-      <div class="sidebar-section">
-        <h3 class="section-title">{{ 'app.status' | translate }}</h3>
-        <p class="status-text">
+      <section class="sidebar-section" aria-labelledby="status-heading">
+        <h2 id="status-heading" class="section-title">{{ 'app.status' | translate }}</h2>
+        <p class="status-text" role="status" aria-live="polite">
           @if (store.hasTicker()) {
             {{ 'app.analyzing' | translate: { ticker: store.selectedTicker() } }}
           } @else {
             {{ 'app.waitingSelection' | translate }}
           }
         </p>
-      </div>
+      </section>
       </div>
     </aside>
 
     <!-- Chart Area -->
-    <main class="chart-area">
+    <main class="chart-area" id="main-content">
       <!-- Welcome screen when no ticker -->
       @if (!store.hasTicker()) {
-        <div class="welcome-screen">
+        <div class="welcome-screen" role="region" aria-label="Welcome to Candle AI">
           <div class="welcome-card">
-            <div class="welcome-icon">📈</div>
+            <div class="welcome-icon" aria-hidden="true">📈</div>
             <h2 class="welcome-title">{{ 'welcome.title' | translate }}</h2>
             <p class="welcome-desc">{{ 'welcome.desc' | translate }}</p>
             <ol class="welcome-steps">
@@ -106,9 +109,9 @@
 
       <!-- Loading overlay -->
       @if (isLoading) {
-        <div class="loading-overlay">
+        <div class="loading-overlay" role="status" aria-live="polite" aria-label="Loading market data">
           <div class="loading-spinner">
-            <div class="spinner"></div>
+            <div class="spinner" aria-hidden="true"></div>
             <span class="loading-text">{{ 'app.loading' | translate }}</span>
           </div>
         </div>

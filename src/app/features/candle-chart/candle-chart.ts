@@ -406,7 +406,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     const sentimentConfig: Record<string, { color: string; shape: 'arrowUp' | 'arrowDown' | 'circle' }> = {
       bullish: { color: '#22c55e', shape: 'arrowUp' },
       bearish: { color: '#ef4444', shape: 'arrowDown' },
-      neutral: { color: '#f59e0b', shape: 'circle' },
+      neutral: { color: '#fbbf24', shape: 'circle' },
     };
 
     const markers = patterns.map((p) => {
@@ -417,7 +417,8 @@ export class CandleChart implements AfterViewInit, OnDestroy {
         color: cfg.color,
         shape: cfg.shape,
         text: p.type.replace(/_/g, ' '),
-        size: 2,
+        size: 3,
+        textColor: '#ffffff',
       };
     });
 

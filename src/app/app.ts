@@ -137,6 +137,16 @@ export class App implements OnInit {
     this.isSidebarOpen = !this.isSidebarOpen;
   }
 
+  /** Skip to main content for keyboard accessibility */
+  skipToMain(event: Event): void {
+    event.preventDefault();
+    const main = document.getElementById('main-content');
+    if (main) {
+      main.focus();
+      main.scrollIntoView();
+    }
+  }
+
   toggleTheme(): void {
     this.isDarkTheme = !this.isDarkTheme;
     localStorage.setItem('candle-ai-theme', this.isDarkTheme ? 'dark' : 'light');

@@ -3,6 +3,7 @@
     "title": "Candle AI",
     "subtitle": "Análisis de Trading",
     "toggleSidebar": "Alternar panel lateral",
+    "selectLanguage": "Seleccionar idioma",
     "info": "Información",
     "ticker": "Símbolo",
     "lastPrice": "Último Precio",
@@ -22,7 +23,13 @@
   },
   "ticker": {
     "searchPlaceholder": "Buscar símbolo...",
-    "watchlist": "Favoritos"
+    "watchlist": "Favoritos",
+    "manageWatchlist": "Gestionar Favoritos",
+    "filterPlaceholder": "Filtrar símbolos...",
+    "selectAll": "Seleccionar Todos",
+    "deselectAll": "Deseleccionar Todos",
+    "done": "Listo",
+    "noWatchlist": "Sin símbolos en favoritos"
   },
   "chart": {
     "selectTicker": "Selecciona un ticker para mostrar el gráfico"
@@ -34,12 +41,17 @@
     "apiKey": "API Key",
     "model": "Modelo",
     "maxTokens": "Tokens Máx.",
+    "maxTokensHint": "Máx. 8192",
     "temperature": "Temperatura",
+    "temperatureHint": "0.0 – 2.0",
     "testConnection": "Probar Conexión",
     "testing": "Probando",
     "connectionOk": "Conexión exitosa ✓",
     "connectionFailed": "Conexión fallida ✗",
-    "localInfo": "Tip: Ejecuta un modelo local con llama.cpp (server) u Ollama. Usa http://localhost:PUERTO/v1 como URL base."
+    "localInfo": "Tip: Ejecuta un modelo local con llama.cpp (server) u Ollama. Usa http://localhost:PUERTO/v1 como URL base.",
+    "optional": "opcional",
+    "connection": "Conexión",
+    "modelConfig": "Configuración del Modelo"
   },
   "indicator": {
     "title": "Indicadores",
@@ -96,6 +108,7 @@
     "toggle": "Alternar panel",
     "notConfigured": "Configura el LLM en ajustes",
     "empty": "Pulsa \"Ejecutar Análisis\" para obtener insights de IA.",
+    "complete": "Análisis completado",
     "generated": "Generado",
     "trend": "Tendencia",
     "levels": "Niveles Clave",

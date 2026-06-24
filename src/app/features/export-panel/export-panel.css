@@ -12,23 +12,28 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 8px 16px;
+  padding: 10px 16px;
   background: var(--color-bg-secondary);
   border: none;
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 0.8125rem; /* 13px */
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s ease;
+  min-height: 40px;
 }
 
 .export-header:hover {
   background: var(--color-btn-active-bg);
 }
 
+.export-header:active {
+  transform: scale(0.99);
+}
+
 .export-chevron {
-  font-size: 11px;
-  transition: transform 0.2s;
+  font-size: 0.6875rem; /* 11px */
+  transition: transform 0.2s ease;
   color: var(--color-text-muted);
 }
 
@@ -45,34 +50,42 @@
 .export-actions {
   display: flex;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 10px 16px;
   flex-wrap: wrap;
   border-bottom: 1px solid var(--color-border-light);
 }
 
 .export-btn {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 8px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-  text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem; /* 12px */
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  min-height: 32px;
 }
 
 .export-btn:hover {
-  background: var(--color-btn-active-bg);
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.export-btn:active {
+  transform: scale(0.97);
 }
 
 .copy-btn.copied {
   background: var(--color-positive-bg);
   color: var(--color-green);
+  border-color: var(--color-green);
 }
 
 /* ─── Code Preview ───────────────────────────────────────────── */

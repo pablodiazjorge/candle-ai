@@ -1,15 +1,15 @@
-<div class="pattern-overlay">
+<div class="pattern-overlay" role="region" aria-labelledby="patterns-panel-title">
   <div class="panel-header">
-    <h3 class="panel-title">{{ 'pattern.title' | translate }}</h3>
+    <h3 id="patterns-panel-title" class="panel-title">{{ 'pattern.title' | translate }}</h3>
     <div class="panel-header-right">
       @if (patterns().length > 0) {
-        <button class="btn-manage-markers" (click)="openModal()" [title]="'pattern.manageMarkers' | translate">
-          <span class="markers-icon">📍</span>
-          <span class="markers-count" [class.active]="selectedCount() > 0">{{ selectedCount() }}</span>
+        <button class="btn-manage-markers" (click)="openModal()" [attr.aria-label]="'pattern.manageMarkers' | translate">
+          <span class="markers-icon" aria-hidden="true">📍</span>
+          <span class="markers-count" [class.active]="selectedCount() > 0" aria-label="{{ selectedCount() }} patterns visible on chart">{{ selectedCount() }}</span>
         </button>
       }
       @if (loading()) {
-        <span class="loading-indicator">{{ 'pattern.detecting' | translate }}</span>
+        <span class="loading-indicator" role="status" aria-live="polite">{{ 'pattern.detecting' | translate }}</span>
       }
     </div>
   </div>
@@ -17,7 +17,7 @@
   @if (patterns().length === 0) {
     <p class="empty-state">{{ 'pattern.noneDetected' | translate }}</p>
   } @else {
-    <div class="pattern-summary">
+    <div class="pattern-summary" role="status" aria-label="Pattern summary: {{ bullishPatterns.length }} bullish, {{ bearishPatterns.length }} bearish, {{ neutralPatterns.length }} neutral">
       @if (bullishPatterns.length) {
         <span class="summary-chip bullish">{{ 'pattern.bullish' | translate }}: {{ bullishPatterns.length }}</span>
       }
@@ -29,26 +29,36 @@
       }
     </div>
 
-    <ul class="pattern-list">
+    <ul class="pattern-list" role="list">
       @for (p of patterns(); track p.time + p.type) {
-        <li class="pattern-item" [class]="p.sentiment">
-          <span class="pattern-icon">{{ sentimentIcon(p.sentiment) }}</span>
+        <li class="pattern-item" [class]="p.sentiment" role="listitem">
+          <!-- Non-color indicator icon (WCAG 1.4.1) -->
+          <span class="pattern-icon" aria-hidden="true">{{ sentimentIcon(p.sentiment) }}</span>
+          <!-- Text-based sentiment badge -->
+          <span class="pattern-sentiment-badge">{{ 'pattern.' + p.sentiment | translate }}</span>
           <div class="pattern-info">
             <span class="pattern-name">{{ p.labelKey | translate }}</span>
-            <span class="pattern-confidence">{{ formatConfidence(p.confidence) }}</span>
           </div>
+          <span class="pattern-confidence">{{ formatConfidence(p.confidence) }}</span>
         </li>
       }
     </ul>
   }
 
-  <!-- Pattern Selection Modal -->
+  <!-- Pattern Selection Modal — WCAG 2.4.3 compliant -->
   @if (modalOpen()) {
     <div class="modal-backdrop" (click)="closeModal()">
-      <div class="modal-content" (click)="$event.stopPropagation()">
+      <div
+        class="modal-content"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-pattern-title"
+        (keydown)="onModalKeydown($event)"
+      >
         <div class="modal-header">
-          <h4 class="modal-title">{{ 'pattern.selectMarkers' | translate }}</h4>
-          <button class="modal-close" (click)="closeModal()">✕</button>
+          <h4 id="modal-pattern-title" class="modal-title">{{ 'pattern.selectMarkers' | translate }}</h4>
+          <button class="modal-close" (click)="closeModal()" aria-label="Close dialog">✕</button>
         </div>
 
         <div class="modal-actions">
@@ -56,15 +66,15 @@
           <button class="btn-deselect-all" (click)="deselectAll()">{{ 'pattern.deselectAll' | translate }}</button>
         </div>
 
-        <div class="modal-pattern-list">
+        <div class="modal-pattern-list" role="list">
           @for (meta of availableTypes(); track meta.type) {
-            <label class="modal-pattern-item" [class]="meta.sentiment">
+            <label class="modal-pattern-item" [class]="meta.sentiment" role="listitem">
               <input
                 type="checkbox"
                 [checked]="store.isPatternVisible(meta.type)"
                 (change)="toggleInModal(meta.type)"
               />
-              <span class="modal-pattern-icon">{{ sentimentIcon(meta.sentiment) }}</span>
+              <span class="modal-pattern-icon" aria-hidden="true">{{ sentimentIcon(meta.sentiment) }}</span>
               <span class="modal-pattern-label">{{ meta.labelKey | translate }}</span>
               <span class="modal-pattern-sentiment">{{ 'pattern.' + meta.sentiment | translate }}</span>
             </label>

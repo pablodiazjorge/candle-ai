@@ -27,6 +27,14 @@ export class LlmSettings {
     this.isOpen.set(false);
   }
 
+  /** Handle Escape key to close modal */
+  onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.close();
+    }
+  }
+
   onPresetChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
     this.store.selectPreset(select.value);

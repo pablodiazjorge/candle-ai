@@ -1,27 +1,37 @@
-<div class="export-panel">
+<div class="export-panel" role="region" aria-labelledby="export-panel-title">
   <!-- Toggle Header -->
-  <button class="export-header" (click)="toggle()" [attr.aria-expanded]="isOpen()">
-    <span class="export-title">📜 Pine Script v5</span>
-    <span class="export-chevron" [class.open]="isOpen()">▼</span>
+  <button
+    class="export-header"
+    (click)="toggle()"
+    [attr.aria-expanded]="isOpen()"
+    aria-controls="export-panel-body"
+  >
+    <span id="export-panel-title" class="export-title">📜 Pine Script v5</span>
+    <span class="export-chevron" [class.open]="isOpen()" aria-hidden="true">▼</span>
   </button>
 
   @if (isOpen()) {
-    <div class="export-body">
+    <div id="export-panel-body" class="export-body">
+      <!-- Screen-reader status for copy action -->
+      <div class="visually-hidden" role="status" aria-live="polite">
+        @if (copied()) { {{ 'export.copied' | translate }} }
+      </div>
+
       <!-- Actions -->
       <div class="export-actions">
-        <button class="export-btn copy-btn" (click)="copyToClipboard()" [class.copied]="copied()">
+        <button class="export-btn copy-btn" (click)="copyToClipboard()" [class.copied]="copied()" [attr.aria-label]="copied() ? ('export.copied' | translate) : ('export.copy' | translate)">
           {{ copied() ? ('export.copied' | translate) : ('export.copy' | translate) }}
         </button>
-        <button class="export-btn download-btn" (click)="download()">
+        <button class="export-btn download-btn" (click)="download()" aria-label="Download Pine Script file">
           {{ 'export.download' | translate }}
         </button>
-        <a class="export-btn tv-link" [href]="tradingViewUrl" target="_blank" rel="noopener">
+        <a class="export-btn tv-link" [href]="tradingViewUrl" target="_blank" rel="noopener" aria-label="Open in TradingView (new tab)">
           {{ 'export.openTv' | translate }}
         </a>
       </div>
 
       <!-- Code Preview -->
-      <div class="code-preview">
+      <div class="code-preview" role="region" [attr.aria-label]="'Pine Script v5 code for ' + store.selectedTicker()">
         <pre><code>@for (line of highlightedLines; track $index) {<span class="line-num">{{ $index + 1 }}</span><span [class]="line.cls">{{ line.text }}</span>
 }</code></pre>
       </div>

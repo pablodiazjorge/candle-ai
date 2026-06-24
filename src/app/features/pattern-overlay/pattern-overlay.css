@@ -10,16 +10,15 @@
 }
 
 .panel-title {
-  font-size: 13px;
+  font-size: 0.8125rem; /* 13px */
   font-weight: 600;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.04em;
   margin: 0;
 }
 
 .loading-indicator {
-  font-size: 11px;
+  font-size: 0.6875rem; /* 11px */
   color: var(--color-text-secondary);
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -33,31 +32,38 @@
 .btn-manage-markers {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-light);
   border-radius: 4px;
-  padding: 2px 8px;
+  padding: 4px 10px;
+  min-width: 24px;
+  min-height: 28px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.6875rem; /* 11px */
   color: var(--color-text-secondary);
-  transition: background 0.15s, border-color 0.15s;
+  transition: all 0.15s ease;
 }
 
 .btn-manage-markers:hover {
   background: var(--color-btn-active-bg);
   border-color: var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+
+.btn-manage-markers:active {
+  transform: scale(0.97);
 }
 
 .markers-icon {
-  font-size: 12px;
+  font-size: 0.75rem; /* 12px */
 }
 
 .markers-count {
   background: var(--color-bg-secondary);
   border-radius: 8px;
   padding: 0 5px;
-  font-size: 10px;
+  font-size: 0.625rem; /* 10px */
   font-weight: 600;
   min-width: 16px;
   text-align: center;
@@ -65,17 +71,159 @@
 }
 
 .markers-count.active {
-  background: var(--color-text-secondary);
-  color: var(--color-bg-primary);
+  background: var(--color-accent-btn-bg);
+  color: var(--color-accent-btn-text);
 }
 
-/* ─── Modal ────────────────────────────────────────────── */
+/* ─── Pattern Summary Chips ───────────────────────────────── */
+
+.pattern-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.summary-chip {
+  font-size: 0.625rem; /* 10px */
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.summary-chip.bullish {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-green);
+}
+
+.summary-chip.bearish {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-red);
+}
+
+.summary-chip.neutral {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+}
+
+/* ─── Pattern List — WCAG 1.4.1 non-color indicator ───────── */
+
+.pattern-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pattern-item {
+  display: grid;
+  grid-template-columns: 20px 52px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+  min-height: 32px;
+}
+
+.pattern-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.pattern-icon {
+  font-size: 0.75rem; /* 12px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+/* Non-color indicator icons — visible to colorblind users */
+.pattern-item.bullish .pattern-icon {
+  color: var(--color-green);
+}
+
+.pattern-item.bearish .pattern-icon {
+  color: var(--color-red);
+}
+
+.pattern-item.neutral .pattern-icon {
+  color: #fbbf24;
+}
+
+/* Sentiment badge — text-based, not color-only */
+.pattern-sentiment-badge {
+  font-size: 0.5625rem; /* 9px */
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.pattern-item.bullish .pattern-sentiment-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-green);
+}
+
+.pattern-item.bearish .pattern-sentiment-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-red);
+}
+
+.pattern-item.neutral .pattern-sentiment-badge {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+}
+
+.pattern-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pattern-name {
+  font-size: 0.75rem; /* 12px */
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.pattern-confidence {
+  font-size: 0.75rem; /* 12px */
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.pattern-item.bullish .pattern-confidence { color: var(--color-green); }
+.pattern-item.bearish .pattern-confidence { color: var(--color-red); }
+.pattern-item.neutral .pattern-confidence { color: #fbbf24; }
+
+/* ─── Empty State ─────────────────────────────────────────── */
+
+.empty-state {
+  font-size: 0.75rem; /* 12px */
+  color: var(--color-text-secondary);
+  font-style: italic;
+  padding: 8px 0;
+  margin: 0;
+}
+
+/* ─── Modal — WCAG 2.4.3 Focus Order ─────────────────────── */
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -83,25 +231,25 @@
 
 .modal-content {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
-  width: 280px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  width: 300px;
   max-height: 70vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 8px;
+  padding: 16px 16px 8px;
 }
 
 .modal-title {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem; /* 13px */
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -109,15 +257,24 @@
 .modal-close {
   background: none;
   border: none;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 16px;
-  padding: 0 2px;
+  font-size: 1rem; /* 16px */
+  padding: 6px 8px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 4px;
   line-height: 1;
+  transition: all 0.15s ease;
 }
 
 .modal-close:hover {
   color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.modal-close:active {
+  transform: scale(0.95);
 }
 
 .modal-actions {
@@ -130,18 +287,25 @@
 .btn-deselect-all {
   flex: 1;
   background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
-  padding: 4px 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  padding: 5px 10px;
+  min-height: 30px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.6875rem; /* 11px */
   color: var(--color-text-secondary);
-  transition: background 0.15s;
+  transition: all 0.15s ease;
 }
 
 .btn-select-all:hover,
 .btn-deselect-all:hover {
   background: var(--color-btn-active-bg);
+  color: var(--color-text-primary);
+}
+
+.btn-select-all:active,
+.btn-deselect-all:active {
+  transform: scale(0.97);
 }
 
 .modal-pattern-list {
@@ -150,33 +314,39 @@
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
-  max-height: 340px;
+  max-height: 320px;
 }
 
 .modal-pattern-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
-  transition: background 0.15s;
+  font-size: 0.75rem; /* 12px */
+  transition: background 0.15s ease;
   user-select: none;
+  min-height: 36px;
 }
 
 .modal-pattern-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
 }
 
 .modal-pattern-item input[type="checkbox"] {
   cursor: pointer;
-  accent-color: var(--color-text-secondary);
+  accent-color: var(--color-accent-btn-bg);
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
 }
 
 .modal-pattern-icon {
-  font-size: 10px;
+  font-size: 0.75rem; /* 12px */
   flex-shrink: 0;
+  width: 18px;
+  text-align: center;
 }
 
 .modal-pattern-label {
@@ -185,9 +355,27 @@
 }
 
 .modal-pattern-sentiment {
-  font-size: 10px;
-  color: var(--color-text-muted);
+  font-size: 0.625rem; /* 10px */
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.modal-pattern-item.bullish .modal-pattern-sentiment {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-green);
+}
+
+.modal-pattern-item.bearish .modal-pattern-sentiment {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-red);
+}
+
+.modal-pattern-item.neutral .modal-pattern-sentiment {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
 }
 
 .modal-footer {
@@ -197,19 +385,26 @@
 }
 
 .btn-done {
-  background: var(--color-text-secondary);
-  color: var(--color-bg-primary);
+  background: var(--color-accent-btn-bg);
+  color: var(--color-accent-btn-text);
   border: none;
-  border-radius: 4px;
-  padding: 6px 20px;
+  border-radius: 6px;
+  padding: 8px 24px;
+  min-width: 80px;
+  min-height: 36px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.8125rem; /* 13px */
   font-weight: 600;
-  transition: opacity 0.15s;
+  transition: all 0.15s ease;
 }
 
 .btn-done:hover {
-  opacity: 0.85;
+  background: var(--color-accent-btn-hover);
+  box-shadow: 0 4px 12px var(--color-accent-btn-shadow);
+}
+
+.btn-done:active {
+  transform: scale(0.97);
 }
 
 @keyframes pulse {

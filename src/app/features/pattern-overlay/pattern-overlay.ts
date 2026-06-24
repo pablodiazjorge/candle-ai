@@ -3,10 +3,11 @@ import { DetectedPattern, PatternType } from '../../core/models/pattern.model';
 import { TickerStore } from '../../core/state/ticker.store';
 import { TranslatePipe } from '@ngx-translate/core';
 
+/** WCAG 1.4.1 compliant: non-color text-based indicators for pattern sentiment */
 const SENTIMENT_ICONS: Record<string, string> = {
-  bullish: '🟢',
-  bearish: '🔴',
-  neutral: '🟡',
+  bullish: '▲',
+  bearish: '▼',
+  neutral: '—',
 };
 
 /** All known pattern types with their sentiment for the selection modal */
@@ -76,10 +77,47 @@ export class PatternOverlay {
       this.store.selectAllPatternTypes(allTypes);
     }
     this.modalOpen.set(true);
+    // Focus the close button when modal opens (WCAG 2.4.3)
+    setTimeout(() => {
+      const closeBtn = document.querySelector<HTMLElement>('.modal-content .modal-close');
+      closeBtn?.focus();
+    });
   }
 
   closeModal(): void {
     this.modalOpen.set(false);
+    // Return focus to the trigger button
+    setTimeout(() => {
+      const trigger = document.querySelector<HTMLElement>('.btn-manage-markers');
+      trigger?.focus();
+    });
+  }
+
+  /** Handle keyboard events in modal: Escape to close, Tab trap */
+  onModalKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeModal();
+      return;
+    }
+    // Focus trap within modal
+    if (event.key === 'Tab') {
+      const modal = document.querySelector('.modal-content');
+      if (!modal) return;
+      const focusable = modal.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
   }
 
   toggleInModal(type: PatternType): void {
