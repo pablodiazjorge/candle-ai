@@ -4,11 +4,13 @@ import { TranslateService, TranslatePipe } from '@ngx-translate/core';
 import { TickerSelector } from './features/ticker-selector/ticker-selector';
 import { CandleChart } from './features/candle-chart/candle-chart';
 import { IndicatorPanel } from './features/indicator-panel/indicator-panel';
+import { PatternOverlay } from './features/pattern-overlay/pattern-overlay';
 import { LlmSettings } from './features/llm-settings/llm-settings';
 import { LlmSettingsStore } from './core/state/llm-settings.store';
 import { TickerStore } from './core/state/ticker.store';
 import { MarketDataService } from './core/services/market-data.service';
 import { IndicatorsService } from './core/services/indicators.service';
+import { PatternsService } from './core/services/patterns.service';
 import { CacheStore } from './core/state/cache.store';
 import { IndicatorSettings } from './core/models/indicator.model';
 import { Candle } from './core/models/candle.model';
@@ -16,7 +18,7 @@ import { Candle } from './core/models/candle.model';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [TickerSelector, CandleChart, IndicatorPanel, LlmSettings, TranslatePipe, CurrencyPipe, DecimalPipe],
+  imports: [TickerSelector, CandleChart, IndicatorPanel, PatternOverlay, LlmSettings, TranslatePipe, CurrencyPipe, DecimalPipe],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
@@ -25,6 +27,7 @@ export class App implements OnInit {
   readonly store = inject(TickerStore);
   private readonly marketData = inject(MarketDataService);
   private readonly indicatorsService = inject(IndicatorsService);
+  private readonly patternsService = inject(PatternsService);
   private readonly cacheStore = inject(CacheStore);
 
   readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'] as const;
@@ -65,6 +68,7 @@ export class App implements OnInit {
     if (cached) {
       this.store.setCandleData(cached);
       this.computeActiveIndicators(cached);
+      this.detectPatterns(cached);
       return;
     }
 
@@ -76,7 +80,14 @@ export class App implements OnInit {
       await this.cacheStore.set(cacheKey, candles);
       this.store.setCandleData(candles);
       this.computeActiveIndicators(candles);
+      this.detectPatterns(candles);
     }
+  }
+
+  /** Run pattern detection on candle data */
+  private detectPatterns(candles: Candle[]): void {
+    const patterns = this.patternsService.detectAll(candles);
+    this.store.setPatterns(patterns);
   }
 
   /** Compute indicators if any are active */

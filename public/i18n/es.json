@@ -53,5 +53,24 @@
     "ema21Desc": "Media Móvil Exponencial 21",
     "volumeProfile": "Perfil de Volumen",
     "volumeProfileDesc": "Volumen por nivel de precio"
+  },
+  "pattern": {
+    "title": "Patrones",
+    "noneDetected": "Sin patrones detectados",
+    "detecting": "Detectando...",
+    "bullish": "Alcista",
+    "bearish": "Bajista",
+    "neutral": "Neutral",
+    "doji": "Doji",
+    "hammer": "Martillo",
+    "shootingStar": "Estrella Fugaz",
+    "bullishEngulfing": "Envolvente Alcista",
+    "bearishEngulfing": "Envolvente Bajista",
+    "morningStar": "Estrella del Amanecer",
+    "eveningStar": "Estrella del Atardecer",
+    "bullishHarami": "Harami Alcista",
+    "bearishHarami": "Harami Bajista",
+    "threeWhiteSoldiers": "Tres Soldados Blancos",
+    "threeBlackCrows": "Tres Cuervos Negros"
   }
 }

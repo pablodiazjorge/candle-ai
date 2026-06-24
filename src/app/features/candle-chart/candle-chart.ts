@@ -9,8 +9,10 @@ import {
 } from '@angular/core';
 import {
   createChart,
+  createSeriesMarkers,
   IChartApi,
   ISeriesApi,
+  ISeriesMarkersPluginApi,
   ColorType,
   CrosshairMode,
   Time,
@@ -25,6 +27,7 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import { Candle } from '../../core/models/candle.model';
 import { IndicatorResults } from '../../core/models/indicator.model';
+import { DetectedPattern } from '../../core/models/pattern.model';
 
 @Component({
   selector: 'app-candle-chart',
@@ -38,6 +41,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
 
   readonly candleData = input<Candle[]>([]);
   readonly indicators = input<IndicatorResults | null>(null);
+  readonly patterns = input<DetectedPattern[]>([]);
 
   private chart: IChartApi | null = null;
   private candleSeries: ISeriesApi<'Candlestick'> | null = null;
@@ -47,6 +51,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
   private macdHistogramSeries: ISeriesApi<'Histogram'> | null = null;
   private macdSignalSeries: ISeriesApi<'Line'> | null = null;
   private macdLineSeries: ISeriesApi<'Line'> | null = null;
+  private markersPlugin: ISeriesMarkersPluginApi<Time> | null = null;
 
   private readonly resizeObserver = new ResizeObserver(() => {
     if (this.chart && this.chartContainer) {
@@ -70,6 +75,13 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       const ind = this.indicators();
       if (ind && this.chart) {
         this.updateIndicatorSeries(ind);
+      }
+    });
+
+    effect(() => {
+      const pat = this.patterns();
+      if (this.candleSeries) {
+        this.updatePatternMarkers(pat);
       }
     });
   }
@@ -124,6 +136,9 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       wickDownColor: '#ef4444',
       wickUpColor: '#22c55e',
     });
+
+    // Pattern markers plugin (v5)
+    this.markersPlugin = createSeriesMarkers(this.candleSeries, []);
 
     this.resizeObserver.observe(container);
   }
@@ -368,5 +383,35 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       this.chart?.removeSeries(this.macdLineSeries);
       this.macdLineSeries = null;
     }
+  }
+
+  /** Render pattern markers on the candlestick series */
+  private updatePatternMarkers(patterns: DetectedPattern[]): void {
+    if (!this.markersPlugin) return;
+
+    if (patterns.length === 0) {
+      this.markersPlugin.setMarkers([]);
+      return;
+    }
+
+    const sentimentConfig: Record<string, { color: string; shape: 'arrowUp' | 'arrowDown' | 'circle' }> = {
+      bullish: { color: '#22c55e', shape: 'arrowUp' },
+      bearish: { color: '#ef4444', shape: 'arrowDown' },
+      neutral: { color: '#f59e0b', shape: 'circle' },
+    };
+
+    const markers = patterns.map((p) => {
+      const cfg = sentimentConfig[p.sentiment] ?? sentimentConfig['neutral'];
+      return {
+        time: p.time as Time,
+        position: (p.sentiment === 'bullish' ? 'belowBar' : 'aboveBar') as 'aboveBar' | 'belowBar',
+        color: cfg.color,
+        shape: cfg.shape,
+        text: p.type.replace(/_/g, ' '),
+        size: 2,
+      };
+    });
+
+    this.markersPlugin.setMarkers(markers);
   }
 }

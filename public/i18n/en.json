@@ -53,5 +53,24 @@
     "ema21Desc": "Exponential Moving Average 21",
     "volumeProfile": "Volume Profile",
     "volumeProfileDesc": "Volume by price level"
+  },
+  "pattern": {
+    "title": "Patterns",
+    "noneDetected": "No patterns detected",
+    "detecting": "Detecting...",
+    "bullish": "Bullish",
+    "bearish": "Bearish",
+    "neutral": "Neutral",
+    "doji": "Doji",
+    "hammer": "Hammer",
+    "shootingStar": "Shooting Star",
+    "bullishEngulfing": "Bullish Engulfing",
+    "bearishEngulfing": "Bearish Engulfing",
+    "morningStar": "Morning Star",
+    "eveningStar": "Evening Star",
+    "bullishHarami": "Bullish Harami",
+    "bearishHarami": "Bearish Harami",
+    "threeWhiteSoldiers": "Three White Soldiers",
+    "threeBlackCrows": "Three Black Crows"
   }
 }

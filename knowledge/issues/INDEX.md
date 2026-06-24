@@ -9,10 +9,10 @@
 
 | Status | Count |
 |--------|-------|
-| 🔴 Open (pending) | 0 |
+| 🔴 Open (pending) | 3 |
 | 🟢 Promoted | 0 |
 | ⚫ Discarded | 0 |
-| **Total** | **0** |
+| **Total** | **3** |
 
 ---
 
@@ -24,6 +24,9 @@
 
 | ID | Title | Category | Certainty | Occurrences | First | Last |
 |----|-------|----------|-----------|-------------|-------|------|
+| ISSUE-20260624-3772 | TS isolatedModules requires `export type` for type re-exports | library-api | low | 1 | 2026-06-24 | 2026-06-24 |
+| ISSUE-20260624-be15 | lightweight-charts v5 markers use createSeriesMarkers() plugin, not series.setMarkers() | library-api | low | 1 | 2026-06-24 | 2026-06-24 |
+| ISSUE-20260624-534f | Angular templates: getters accessed without (), signal inputs with () | angular | low | 1 | 2026-06-24 | 2026-06-24 |
 
 ---
 

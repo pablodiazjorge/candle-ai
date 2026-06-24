@@ -1,0 +1,36 @@
+<div class="pattern-overlay">
+  <div class="panel-header">
+    <h3 class="panel-title">{{ 'pattern.title' | translate }}</h3>
+    @if (loading()) {
+      <span class="loading-indicator">{{ 'pattern.detecting' | translate }}</span>
+    }
+  </div>
+
+  @if (patterns().length === 0) {
+    <p class="empty-state">{{ 'pattern.noneDetected' | translate }}</p>
+  } @else {
+    <div class="pattern-summary">
+      @if (bullishPatterns.length) {
+        <span class="summary-chip bullish">{{ 'pattern.bullish' | translate }}: {{ bullishPatterns.length }}</span>
+      }
+      @if (bearishPatterns.length) {
+        <span class="summary-chip bearish">{{ 'pattern.bearish' | translate }}: {{ bearishPatterns.length }}</span>
+      }
+      @if (neutralPatterns.length) {
+        <span class="summary-chip neutral">{{ 'pattern.neutral' | translate }}: {{ neutralPatterns.length }}</span>
+      }
+    </div>
+
+    <ul class="pattern-list">
+      @for (p of patterns(); track p.time + p.type) {
+        <li class="pattern-item" [class]="p.sentiment">
+          <span class="pattern-icon">{{ sentimentIcon(p.sentiment) }}</span>
+          <div class="pattern-info">
+            <span class="pattern-name">{{ p.labelKey | translate }}</span>
+            <span class="pattern-confidence">{{ formatConfidence(p.confidence) }}</span>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>

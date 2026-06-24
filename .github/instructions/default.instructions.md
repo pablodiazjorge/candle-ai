@@ -44,3 +44,12 @@ Branch naming: `feature/<name>`, `fix/<name>`, `docs/<name>`, `chore/<name>`.
 1. Run auto-improve to capture learnings.
 2. Run track-tokens if the user asks for cost data.
 3. Commit changes to `knowledge/issues/` and any updated skills.
+
+## Tech Stack
+
+- Angular 22 standalone + Signals + Zoneless + Tailwind CSS 4
+- lightweight-charts v5 (`addSeries(CandlestickSeries, opts)`, `createSeriesMarkers()` for markers)
+- @ngx-translate v18 (`provideTranslateService` + `provideTranslateHttpLoader`, no `TranslateModule`)
+- Dexie.js for IndexedDB cache
+- Web Workers for heavy computation
+- Vitest for tests
