@@ -1,23 +1,25 @@
 :host {
   display: block;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 .app-layout {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100vh;
 }
 
 /* === Top Bar === */
 .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-toolbar);
+  border-bottom: 1px solid var(--color-border-light);
   min-height: 48px;
   flex-shrink: 0;
 }
@@ -41,7 +43,7 @@
 .app-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-accent);
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -64,27 +66,27 @@
 /* === Language Switcher === */
 .lang-switcher {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   background: var(--color-bg-tertiary);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 2px;
 }
 
 .lang-btn {
   background: none;
   border: none;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
+  font-weight: 500;
+  padding: 4px 10px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
+  border-radius: 6px;
+  transition: background 0.15s;
 }
 
 .lang-btn.active {
-  background: var(--color-accent);
-  color: white;
+  background: var(--color-btn-active-bg);
+  color: var(--color-text-primary);
 }
 
 .lang-btn:hover:not(.active) {
@@ -94,46 +96,46 @@
 /* === Theme Toggle === */
 .theme-toggle-btn {
   background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  border: none;
   color: var(--color-text-secondary);
   font-size: 16px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s;
+  border-radius: 8px;
+  transition: background 0.15s;
   line-height: 1;
 }
 
 .theme-toggle-btn:hover {
-  background: var(--color-btn-bg);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
 /* === Timeframe Bar === */
 .timeframe-bar {
   display: flex;
-  gap: 2px;
+  gap: 1px;
   background: var(--color-bg-tertiary);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 2px;
 }
 
 .tf-btn {
   background: none;
   border: none;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
+  font-weight: 500;
+  padding: 4px 10px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s;
+  border-radius: 6px;
+  transition: background 0.15s;
   text-transform: uppercase;
 }
 
 .tf-btn.active {
-  background: var(--color-accent);
-  color: white;
+  background: var(--color-btn-active-bg);
+  color: var(--color-text-primary);
 }
 
 .tf-btn:hover:not(.active) {
@@ -144,29 +146,35 @@
 .main-content {
   display: flex;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 /* === Sidebar === */
 .sidebar {
+  position: sticky;
+  top: 48px;
+  z-index: 45;
   width: 280px;
   min-width: 280px;
-  padding: 16px;
+  height: calc(100vh - 48px);
   background: var(--color-bg-secondary);
-  border-right: 1px solid var(--color-border);
-  overflow-y: auto;
+  border-right: 1px solid var(--color-border-light);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  transition: width 0.3s, min-width 0.3s, padding 0.3s;
+  transition: width 0.3s, min-width 0.3s;
 }
 
 .sidebar.collapsed {
   width: 0;
   min-width: 0;
-  padding: 16px 0;
-  overflow: hidden;
+}
+
+.sidebar-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .sidebar-section {
@@ -233,6 +241,7 @@
   gap: 12px;
   overflow: hidden;
   position: relative;
+  z-index: 0;
 }
 
 /* ─── Welcome Screen ─────────────────────────────────────────── */
@@ -248,7 +257,7 @@
 
 .welcome-card {
   background: var(--color-welcome-bg);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: 12px;
   padding: 2.5rem 2rem;
   text-align: center;
@@ -289,7 +298,8 @@
 }
 
 .welcome-steps strong {
-  color: var(--color-accent);
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 /* ─── Loading Overlay ────────────────────────────────────────── */
@@ -299,14 +309,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 17, 23, 0.7);
+  background: rgba(19, 19, 19, 0.75);
   backdrop-filter: blur(4px);
   z-index: 20;
   animation: fadeIn 0.2s ease-out;
 }
 
 [data-theme="light"] .loading-overlay {
-  background: rgba(248, 250, 252, 0.7);
+  background: rgba(235, 235, 235, 0.75);
 }
 
 .loading-spinner {
@@ -354,14 +364,18 @@
 }
 
 .chart-area app-candle-chart {
-  flex: 1;
-  min-height: 300px;
+  display: block;
+  height: 500px;
+  min-height: 400px;
+  flex-shrink: 0;
 }
 
 .chart-area app-analysis-dashboard {
   flex-shrink: 0;
-  max-height: 40%;
-  overflow: hidden;
+}
+
+.chart-area app-export-panel {
+  flex-shrink: 0;
 }
 
 /* === Responsive ──────────────────────────────────────────────── */
@@ -403,7 +417,7 @@
   /* Sidebar as overlay */
   .sidebar {
     position: fixed;
-    top: 0;
+    top: 48px;
     left: 0;
     bottom: 0;
     z-index: 100;

@@ -28,9 +28,9 @@ Browser
 |  | Web Worker               |  | Main Thread                  |  |
 |  | (indicators.worker.ts)   |  |                              |  |
 |  | - RSI, MACD, BB          |  |  Lightweight Charts          |  |
-|  | - SMA, EMA               |  |  D3.js Overlays              |  |
-|  | - Volume Profile         |  |  Angular Components          |  |
-|  |                          |  |  Signal-based State          |  |
+  |  | - SMA, EMA               |  |  Angular Components          |  |
+  |  | - Volume Profile         |  |  Signal-based State          |  |
+  |  |                          |  |                              |  |
 |  +--------------------------+  +------------------------------+  |
 |                                                                 |
 |  +--------------------------+  +------------------------------+  |
@@ -276,13 +276,13 @@ translation content.
 
 ---
 
-### ADR-006: Lightweight Charts over D3.js for Main Chart
+### ADR-006: Lightweight Charts as Sole Charting Library
 
 **Context.**
 The application needs a financial chart with candlestick series, volume
-histograms, and multiple indicator overlays. Performance is critical: the
-chart must render smoothly when panning and zooming through hundreds of
-candles.
+histograms, multiple indicator overlays, and pattern markers. Performance
+is critical: the chart must render smoothly when panning and zooming through
+hundreds of candles.
 
 **Options considered.**
 
@@ -290,27 +290,31 @@ A. D3.js for everything. Maximum customization. Canvas-based rendering
 possible but requires manual implementation of zoom, pan, crosshair, and
 series management.
 
-B. Lightweight Charts (TradingView) for the main chart, D3.js only for
-pattern overlays. LW provides candlestick series, volume, indicators,
-crosshair, and time axis out of the box.
+B. Lightweight Charts (TradingView) for everything. LW provides candlestick
+series, volume, indicators, crosshair, time axis, AND pattern markers via
+`createSeriesMarkers()` — all out of the box.
 
 **Decision.**
-Use Lightweight Charts for the main chart and indicator series. Reserve
-D3.js for pattern markers that require custom SVG overlays (labels,
-tooltips on detected patterns).
+Use Lightweight Charts exclusively. No D3.js dependency. Pattern markers
+use LW's `createSeriesMarkers()` API with per-sentiment shapes and colors
+(arrowUp for bullish, arrowDown for bearish, circle for neutral).
 
 **Rationale.**
-Lightweight Charts is purpose-built for financial charting. It handles
-candlestick rendering, time axis formatting, zoom/pan, crosshair, and
-responsive sizing with minimal configuration. Implementing the same in
-raw D3.js would require hundreds of lines of code and ongoing maintenance
-for edge cases. D3.js is used only where LW's API is insufficient: custom
-pattern markers with hover tooltips.
+Lightweight Charts v5 is purpose-built for financial charting. It handles
+candlestick rendering, time axis formatting, zoom/pan, crosshair,
+responsive sizing, AND series markers with minimal configuration.
+`createSeriesMarkers()` supports custom shapes, colors, text labels, and
+positioning (aboveBar/belowBar/inBar) — eliminating the need for a
+separate SVG overlay library. A single charting dependency reduces bundle
+size and avoids coordinate-system synchronization issues.
 
 **Consequences.**
-The application has two charting dependencies instead of one. LW uses a
-canvas-based renderer; D3 overlays use SVG. This means two separate
-coordinate systems that must be kept in sync during zoom and pan events.
+LW markers are canvas-rendered, not DOM elements — they cannot be styled
+with CSS or inspected in DevTools. Marker text labels are rendered at a
+fixed pixel size regardless of zoom level. Pattern visibility is managed
+via a per-type selection modal that filters markers before passing them to
+`setMarkers()`. Only the full LW v5 API is available (the older v4 `add*`
+methods like `addCandlestickSeries()` were removed).
 
 ---
 
@@ -331,8 +335,8 @@ Components use `var(--color-*)` throughout.
 
 **Decision.**
 Use CSS custom properties with `data-theme` attribute. Define all color
-values as custom properties in `styles.css`. Toggle the attribute via a
-`ThemeService` that persists to `localStorage`.
+values as custom properties in `styles.css`. Toggle the attribute via the
+`App` component's `applyTheme()` method, which persists to `localStorage`.
 
 **Rationale.**
 Custom properties are the standard approach for runtime theming in modern

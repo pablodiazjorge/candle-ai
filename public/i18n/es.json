@@ -80,7 +80,13 @@
     "bullishHarami": "Harami Alcista",
     "bearishHarami": "Harami Bajista",
     "threeWhiteSoldiers": "Tres Soldados Blancos",
-    "threeBlackCrows": "Tres Cuervos Negros"
+    "threeBlackCrows": "Tres Cuervos Negros",
+    "showOnChart": "Mostrar en gráfico",
+    "manageMarkers": "Gestionar marcadores",
+    "selectMarkers": "Seleccionar Patrones a Mostrar",
+    "selectAll": "Seleccionar Todos",
+    "deselectAll": "Deseleccionar Todos",
+    "done": "Listo"
   },
   "analysis": {
     "title": "Análisis IA",

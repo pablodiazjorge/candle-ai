@@ -1,55 +1,104 @@
 @import "tailwindcss";
 
-/* === Trading Analysis Dashboard — Global Styles === */
+/* === Candle AI — Global Styles (TradingView-inspired) === */
+
+/*
+ * Color tokens extracted from TradingView's dark & light themes.
+ * Buttons use bg-color differentiation, NOT borders.
+ * Neutral grayscale — no blue, no brand colors.
+ */
 
 /* ─── Dark Theme (default) ─────────────────────────────────────── */
 :root {
-  --color-bg-primary: #0f1117;
-  --color-bg-secondary: #1a1d2e;
-  --color-bg-tertiary: #252940;
-  --color-border: #2a2e44;
-  --color-text-primary: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-accent: #3b82f6;
-  --color-accent-hover: #2563eb;
-  --color-green: #22c55e;
-  --color-red: #ef4444;
-  --color-yellow: #eab308;
-  --color-purple: #a855f7;
-  --color-surface: #1e293b;
-  --color-surface-hover: #334155;
-  --color-btn-bg: #334155;
-  --color-btn-border: #475569;
-  --color-welcome-bg: #1a1d2e;
-  --color-skeleton: #252940;
-  --color-skeleton-shine: #334155;
-  --color-spinner: #3b82f6;
+  /* Background hierarchy (darkest → lightest) */
+  --color-bg-toolbar: #0f0f0f;      /* top bar — matches TV toolbar */
+  --color-bg-primary: #131313;       /* page bg — between toolbar & surface */
+  --color-bg-secondary: #1a1a1a;     /* sidebar, panel bg */
+  --color-bg-tertiary: #1f1f1f;      /* cards, elevated surfaces */
+  --color-bg-input: #1f1f1f;         /* inputs, selects */
+  --color-bg-hover: #2e2e2e;         /* hover state */
+  --color-bg-active: #3d3d3d;        /* active/selected state */
+
+  /* Borders */
+  --color-border: #3d3d3d;           /* subtle border */
+  --color-border-light: #2e2e2e;     /* very subtle border */
+
+  /* Text */
+  --color-text-primary: #dbdbdb;     /* main text */
+  --color-text-secondary: #b8b8b8;   /* secondary, labels */
+  --color-text-muted: #787878;       /* placeholders, disabled */
+
+  /* Accent (neutral gray — no blue) */
+  --color-accent: #787878;
+  --color-accent-hover: #b8b8b8;
+
+  /* Semantics */
+  --color-green: #089985;
+  --color-red: #f23645;
+  --color-yellow: #ff9800;
+  --color-purple: #b388ff;
+
+  /* Buttons */
+  --color-btn-primary-bg: #2e2e2e;
+  --color-btn-primary-hover: #3d3d3d;
+  --color-btn-secondary-bg: #1f1f1f;
+  --color-btn-secondary-hover: #2e2e2e;
+  --color-btn-active-bg: #3d3d3d;
+
+  /* Code blocks */
+  --color-code-bg: #222222;
+  --color-code-text: #c9c9c9;
+
+  /* Misc */
+  --color-welcome-bg: #1a1a1a;
+  --color-skeleton: #1f1f1f;
+  --color-skeleton-shine: #2e2e2e;
+  --color-spinner: #787878;
+  --color-positive-bg: rgba(8, 153, 133, 0.15);
+  --color-negative-bg: rgba(242, 54, 69, 0.1);
 }
 
 /* ─── Light Theme ──────────────────────────────────────────────── */
 [data-theme="light"] {
-  --color-bg-primary: #f8fafc;
+  --color-bg-toolbar: #ffffff;
+  --color-bg-primary: #ebebeb;
   --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-green: #16a34a;
-  --color-red: #dc2626;
-  --color-yellow: #ca8a04;
-  --color-purple: #9333ea;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f1f5f9;
-  --color-btn-bg: #e2e8f0;
-  --color-btn-border: #cbd5e1;
+  --color-bg-tertiary: #f2f2f2;
+  --color-bg-input: #ffffff;
+  --color-bg-hover: #ebebeb;
+  --color-bg-active: #dbdbdb;
+
+  --color-border: #dbdbdb;
+  --color-border-light: #ebebeb;
+
+  --color-text-primary: #0f0f0f;
+  --color-text-secondary: #575757;
+  --color-text-muted: #8c8c8c;
+
+  --color-accent: #8c8c8c;
+  --color-accent-hover: #636363;
+
+  --color-green: #089985;
+  --color-red: #f23645;
+  --color-yellow: #e65100;
+  --color-purple: #7c4dff;
+
+  --color-btn-primary-bg: #f2f2f2;
+  --color-btn-primary-hover: #ebebeb;
+  --color-btn-secondary-bg: #ffffff;
+  --color-btn-secondary-hover: #f2f2f2;
+  --color-btn-active-bg: #dbdbdb;
+
   --color-welcome-bg: #ffffff;
-  --color-skeleton: #e2e8f0;
-  --color-skeleton-shine: #f1f5f9;
-  --color-spinner: #2563eb;
+  --color-skeleton: #ebebeb;
+  --color-skeleton-shine: #f2f2f2;
+  --color-spinner: #8c8c8c;
+  --color-positive-bg: rgba(8, 153, 133, 0.1);
+  --color-negative-bg: rgba(242, 54, 69, 0.08);
+
+  /* Code blocks */
+  --color-code-bg: #fafafa;
+  --color-code-text: #0f0f0f;
 }
 
 * {
@@ -62,9 +111,11 @@ html, body {
   height: 100%;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 ::-webkit-scrollbar {
@@ -73,7 +124,7 @@ html, body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-primary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -85,21 +136,16 @@ html, body {
   background: var(--color-text-muted);
 }
 
+/* === Shared component styles === */
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
 .chart-container {
   position: relative;
   width: 100%;
   height: 100%;
   min-height: 400px;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.skeleton {
-  background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-tertiary) 50%, var(--color-bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 4px;
 }

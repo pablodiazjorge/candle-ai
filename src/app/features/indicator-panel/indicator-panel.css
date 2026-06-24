@@ -30,8 +30,8 @@
 }
 
 .clear-btn:hover {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
 }
 
 .toggle-list {
@@ -56,7 +56,7 @@
 }
 
 .toggle-row.active {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
 }
 
 .toggle-info {
@@ -118,11 +118,11 @@
 }
 
 .toggle-input:checked + .toggle-slider {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-text-secondary);
+  border-color: var(--color-text-secondary);
 }
 
 .toggle-input:checked + .toggle-slider::before {
   transform: translateX(16px);
-  background: white;
+  background: #ffffff;
 }

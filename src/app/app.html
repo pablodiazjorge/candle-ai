@@ -37,6 +37,7 @@
   <div class="main-content">
     <!-- Sidebar -->
     <aside class="sidebar" [class.collapsed]="!isSidebarOpen">
+      <div class="sidebar-scroll">
       <app-ticker-selector />
 
       @if (store.hasTicker()) {
@@ -80,6 +81,7 @@
             {{ 'app.waitingSelection' | translate }}
           }
         </p>
+      </div>
       </div>
     </aside>
 

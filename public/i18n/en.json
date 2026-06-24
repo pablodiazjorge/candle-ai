@@ -80,7 +80,13 @@
     "bullishHarami": "Bullish Harami",
     "bearishHarami": "Bearish Harami",
     "threeWhiteSoldiers": "Three White Soldiers",
-    "threeBlackCrows": "Three Black Crows"
+    "threeBlackCrows": "Three Black Crows",
+    "showOnChart": "Show on chart",
+    "manageMarkers": "Manage chart markers",
+    "selectMarkers": "Select Patterns to Display",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "done": "Done"
   },
   "analysis": {
     "title": "AI Analysis",

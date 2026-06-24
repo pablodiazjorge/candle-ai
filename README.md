@@ -40,8 +40,7 @@ For the full rationale behind every architectural decision, see
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | Framework | Angular 22 (standalone, Signals, zoneless) | Application shell and reactivity |
-| Charting | Lightweight Charts v5 (TradingView) | Candlestick series, indicators, volume |
-| Overlays | D3.js | Custom pattern markers on the chart |
+| Charting | Lightweight Charts v5 (TradingView) | Candlestick series, indicators, volume, pattern markers |
 | Computation | Web Workers | RSI, MACD, Bollinger Bands, SMA, EMA off main thread |
 | AI Analysis | OpenAI-compatible (Ollama, DeepSeek, OpenAI, Groq…) | Natural language market analysis |
 | Caching | Dexie.js (IndexedDB) | 1-hour TTL for market data |
@@ -88,7 +87,7 @@ src/app/
 │   ├── ticker-selector/ # Symbol search with autocomplete + watchlist
 │   ├── candle-chart/    # Lightweight Charts with candlestick series
 │   ├── indicator-panel/ # Toggles: RSI, MACD, BB, EMA, SMA, Volume Profile
-│   ├── pattern-overlay/ # D3.js pattern markers with sentiment badges
+│   ├── pattern-overlay/ # Pattern list with per-type chart marker selection modal
 │   ├── analysis-dashboard/ # AI analysis: Trend, Levels, Signals, Risk, Summary
 │   ├── llm-settings/    # Provider configuration panel
 │   └── export-panel/    # Pine Script v5 code generation + TradingView deep link
@@ -121,7 +120,9 @@ All calculations run off the main thread:
 
 ### Candlestick Patterns
 
-11 patterns detected via rule-based analysis (no external library):
+11 patterns detected via rule-based analysis (no external library).
+A selection modal (📍 button) lets you pick which pattern types to display
+as markers on the chart.
 
 | Sentiment | Patterns |
 |-----------|----------|

@@ -1,9 +1,17 @@
 <div class="pattern-overlay">
   <div class="panel-header">
     <h3 class="panel-title">{{ 'pattern.title' | translate }}</h3>
-    @if (loading()) {
-      <span class="loading-indicator">{{ 'pattern.detecting' | translate }}</span>
-    }
+    <div class="panel-header-right">
+      @if (patterns().length > 0) {
+        <button class="btn-manage-markers" (click)="openModal()" [title]="'pattern.manageMarkers' | translate">
+          <span class="markers-icon">📍</span>
+          <span class="markers-count" [class.active]="selectedCount() > 0">{{ selectedCount() }}</span>
+        </button>
+      }
+      @if (loading()) {
+        <span class="loading-indicator">{{ 'pattern.detecting' | translate }}</span>
+      }
+    </div>
   </div>
 
   @if (patterns().length === 0) {
@@ -32,5 +40,41 @@
         </li>
       }
     </ul>
+  }
+
+  <!-- Pattern Selection Modal -->
+  @if (modalOpen()) {
+    <div class="modal-backdrop" (click)="closeModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h4 class="modal-title">{{ 'pattern.selectMarkers' | translate }}</h4>
+          <button class="modal-close" (click)="closeModal()">✕</button>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-select-all" (click)="selectAll()">{{ 'pattern.selectAll' | translate }}</button>
+          <button class="btn-deselect-all" (click)="deselectAll()">{{ 'pattern.deselectAll' | translate }}</button>
+        </div>
+
+        <div class="modal-pattern-list">
+          @for (meta of availableTypes(); track meta.type) {
+            <label class="modal-pattern-item" [class]="meta.sentiment">
+              <input
+                type="checkbox"
+                [checked]="store.isPatternVisible(meta.type)"
+                (change)="toggleInModal(meta.type)"
+              />
+              <span class="modal-pattern-icon">{{ sentimentIcon(meta.sentiment) }}</span>
+              <span class="modal-pattern-label">{{ meta.labelKey | translate }}</span>
+              <span class="modal-pattern-sentiment">{{ 'pattern.' + meta.sentiment | translate }}</span>
+            </label>
+          }
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-done" (click)="closeModal()">{{ 'pattern.done' | translate }}</button>
+        </div>
+      </div>
+    </div>
   }
 </div>

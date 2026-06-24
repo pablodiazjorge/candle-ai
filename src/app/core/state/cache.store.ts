@@ -17,8 +17,8 @@ export class CacheStore extends Dexie {
 
   constructor() {
     super('CandleAiCache');
-    this.version(1).stores({
-      candles: '++id, key',
+    this.version(2).stores({
+      candles: '++id, key, cachedAt',
     });
   }
 

@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Candle } from '../models/candle.model';
 import { IndicatorResults, IndicatorSettings, DEFAULT_INDICATOR_SETTINGS } from '../models/indicator.model';
-import { DetectedPattern } from '../models/pattern.model';
+import { DetectedPattern, PatternType } from '../models/pattern.model';
 import { AnalysisResult } from '../models/analysis.model';
 import { Timeframe, Range } from '../services/market-data.service';
 
@@ -26,7 +26,7 @@ const initialState: TickerState = {
   activeIndicators: DEFAULT_INDICATOR_SETTINGS,
   patterns: [],
   analysis: null,
-  watchlist: ['SPY', 'QQQ', 'AAPL', 'MSFT', 'BTC-USD', 'GC=F'],
+  watchlist: ['SPY', 'QQQ', 'AAPL', 'NVDA', 'BTC-USD', 'GC=F'],
 };
 
 @Injectable({ providedIn: 'root' })
@@ -41,8 +41,13 @@ export class TickerStore {
   readonly analysis = signal<AnalysisResult | null>(initialState.analysis);
   readonly watchlist = signal<string[]>(initialState.watchlist);
   readonly activeIndicators = signal<IndicatorSettings>(initialState.activeIndicators);
+  /** Set of pattern types currently visible on the chart */
+  readonly visiblePatternTypes = signal<Set<PatternType>>(new Set());
 
   // --- Computed ---
+
+  /** Whether any pattern type is selected for display */
+  readonly hasVisiblePatterns = computed(() => this.visiblePatternTypes().size > 0);
   readonly hasData = computed(() => this.candleData().length > 0);
   readonly hasTicker = computed(() => this.selectedTicker() !== null);
   readonly lastCandle = computed(() => {
@@ -116,6 +121,30 @@ export class TickerStore {
 
   private persistWatchlist(): void {
     localStorage.setItem('candle-ai-watchlist', JSON.stringify(this.watchlist()));
+  }
+
+  togglePatternType(type: PatternType): void {
+    this.visiblePatternTypes.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  }
+
+  isPatternVisible(type: PatternType): boolean {
+    return this.visiblePatternTypes().has(type);
+  }
+
+  selectAllPatternTypes(types: PatternType[]): void {
+    this.visiblePatternTypes.set(new Set(types));
+  }
+
+  deselectAllPatternTypes(): void {
+    this.visiblePatternTypes.set(new Set());
   }
 
   loadWatchlist(): void {

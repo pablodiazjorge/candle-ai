@@ -113,7 +113,7 @@
 
 .field-input:focus,
 .field-select:focus {
-  border-color: var(--color-accent);
+  border-color: var(--color-text-secondary);
 }
 
 .field-select {
@@ -147,7 +147,7 @@
 
 .test-btn {
   padding: 10px 16px;
-  background: var(--color-accent);
+  background: var(--color-btn-active-bg);
   color: white;
   border: none;
   border-radius: 8px;
@@ -158,7 +158,7 @@
 }
 
 .test-btn:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  background: var(--color-btn-primary-hover);
 }
 
 .test-btn:disabled {

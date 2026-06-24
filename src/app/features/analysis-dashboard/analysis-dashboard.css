@@ -3,10 +3,9 @@
 }
 
 .analysis-dashboard {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 8px 8px 0 0;
-  overflow: hidden;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
 }
 
 .analysis-dashboard.collapsed .dashboard-body,
@@ -41,7 +40,7 @@
 
 .analyzing-badge {
   font-size: 11px;
-  color: var(--color-accent);
+  color: var(--color-text-secondary);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -61,22 +60,30 @@
   align-items: center;
   gap: 6px;
   padding: 5px 14px;
-  background: var(--color-accent);
-  color: white;
+  background: #4a4a4a;
+  color: #ffffff;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: background 0.15s;
+}
+
+[data-theme="light"] .btn-analyze {
+  background: #575757;
 }
 
 .btn-analyze:hover:not(:disabled) {
-  opacity: 0.9;
+  background: #636363;
+}
+
+[data-theme="light"] .btn-analyze:hover:not(:disabled) {
+  background: #707070;
 }
 
 .btn-analyze:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -129,8 +136,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-height: 500px;
-  overflow-y: auto;
 }
 
 .analysis-section {
@@ -359,7 +364,7 @@
 
 /* Summary */
 .summary-section {
-  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  background: color-mix(in srgb, var(--color-text-secondary) 5%, transparent);
   border-radius: 8px;
   padding: 12px;
   border-bottom: none;

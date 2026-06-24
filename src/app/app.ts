@@ -62,8 +62,8 @@ export class App implements OnInit {
     // Load persisted watchlist
     this.store.loadWatchlist();
 
-    // Clear expired cache entries on startup
-    this.cacheStore.purgeExpired();
+    // Clear expired cache entries on startup (non-critical)
+    this.cacheStore.purgeExpired().catch(() => {});
   }
 
   /** Load market data for a ticker: cache → API → mock fallback */

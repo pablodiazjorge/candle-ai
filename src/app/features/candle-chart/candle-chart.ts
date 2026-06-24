@@ -6,6 +6,7 @@ import {
   OnDestroy,
   effect,
   input,
+  inject,
 } from '@angular/core';
 import {
   createChart,
@@ -25,6 +26,7 @@ import {
   PriceScaleMode,
 } from 'lightweight-charts';
 import { TranslatePipe } from '@ngx-translate/core';
+import { TickerStore } from '../../core/state/ticker.store';
 import { Candle } from '../../core/models/candle.model';
 import { IndicatorResults } from '../../core/models/indicator.model';
 import { DetectedPattern } from '../../core/models/pattern.model';
@@ -37,6 +39,7 @@ import { DetectedPattern } from '../../core/models/pattern.model';
   styleUrl: './candle-chart.css',
 })
 export class CandleChart implements AfterViewInit, OnDestroy {
+  private readonly store = inject(TickerStore);
   @ViewChild('chartContainer') chartContainer!: ElementRef<HTMLDivElement>;
 
   readonly candleData = input<Candle[]>([]);
@@ -80,8 +83,14 @@ export class CandleChart implements AfterViewInit, OnDestroy {
 
     effect(() => {
       const pat = this.patterns();
-      if (this.candleSeries) {
-        this.updatePatternMarkers(pat);
+      const visibleTypes = this.store.visiblePatternTypes();
+      if (this.candleSeries && this.markersPlugin) {
+        if (visibleTypes.size > 0) {
+          const filtered = pat.filter((p) => visibleTypes.has(p.type));
+          this.updatePatternMarkers(filtered);
+        } else {
+          this.markersPlugin.setMarkers([]);
+        }
       }
     });
   }
@@ -112,8 +121,8 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: '#3b82f6', style: 2, width: 1, labelBackgroundColor: '#3b82f6' },
-        horzLine: { color: '#3b82f6', style: 2, width: 1, labelBackgroundColor: '#3b82f6' },
+        vertLine: { color: '#787878', style: 2, width: 1, labelBackgroundColor: '#787878' },
+        horzLine: { color: '#787878', style: 2, width: 1, labelBackgroundColor: '#787878' },
       },
       rightPriceScale: {
         borderColor: '#2a2e44',
@@ -168,7 +177,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
 
     // SMA 20
     if (ind.sma20) {
-      this.addLineSeries(ind.sma20.values, '#3b82f6', 'SMA 20');
+      this.addLineSeries(ind.sma20.values, '#b8b8b8', 'SMA 20');
     }
     // SMA 50
     if (ind.sma50) {
@@ -318,7 +327,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
 
     // MACD line
     this.macdLineSeries = this.chart.addSeries(LineSeries, {
-      color: '#3b82f6',
+      color: '#787878',
       lineWidth: 1,
       priceLineVisible: false,
       lastValueVisible: false,
