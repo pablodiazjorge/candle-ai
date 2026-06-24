@@ -101,5 +101,18 @@
     "high": "High",
     "support": "Support",
     "resistance": "Resistance"
+  },
+  "export": {
+    "title": "Export Pine Script",
+    "copy": "📋 Copy Code",
+    "copied": "✓ Copied!",
+    "download": "💾 Download .pine",
+    "openTv": "📊 Open TradingView",
+    "instructions": "How to use in TradingView:",
+    "step1": "Open TradingView → Pine Editor (bottom panel)",
+    "step2": "Paste the code above",
+    "step3": "Click \"Add to chart\"",
+    "step4": "Adjust indicator settings as needed",
+    "tip": "Tip: To show oscillators (RSI, MACD) in a separate pane, copy them into a new indicator with overlay=false and remove display=display.none."
   }
 }

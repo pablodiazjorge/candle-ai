@@ -1,0 +1,197 @@
+.export-panel {
+  margin-top: 1rem;
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-bg, #1e293b);
+}
+
+.export-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface-bg, #1e293b);
+  border: none;
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.export-header:hover {
+  background: var(--hover-bg, #334155);
+}
+
+.export-chevron {
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+}
+
+.export-chevron.open {
+  transform: rotate(180deg);
+}
+
+.export-body {
+  border-top: 1px solid var(--border-color, #334155);
+}
+
+/* ─── Actions ────────────────────────────────────────────────── */
+
+.export-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-color, #334155);
+}
+
+.export-btn {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--border-color, #475569);
+  border-radius: 6px;
+  background: var(--btn-bg, #334155);
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.export-btn:hover {
+  background: var(--hover-bg, #475569);
+  border-color: var(--accent, #60a5fa);
+}
+
+.copy-btn.copied {
+  background: #166534;
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.tv-link {
+  background: #1e3a5f;
+  border-color: #2962ff;
+  color: #90caf9;
+}
+
+.tv-link:hover {
+  background: #2a4a7f;
+}
+
+/* ─── Code Preview ───────────────────────────────────────────── */
+
+.code-preview {
+  max-height: 400px;
+  overflow: auto;
+  background: #0f172a;
+  border-bottom: 1px solid var(--border-color, #334155);
+}
+
+.code-preview pre {
+  margin: 0;
+  padding: 0.75rem 0;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  counter-reset: line;
+}
+
+.code-preview code {
+  display: block;
+}
+
+.code-preview code span {
+  display: inline;
+}
+
+.line-num {
+  display: inline-block;
+  width: 3rem;
+  text-align: right;
+  padding-right: 1rem;
+  color: #475569;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Syntax highlighting */
+.line-version {
+  color: #f59e0b;
+}
+
+.line-section {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.line-comment {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.line-declaration {
+  color: #c084fc;
+}
+
+.line-plot {
+  color: #34d399;
+}
+
+.line-assignment {
+  color: #f9a8d4;
+}
+
+/* ─── Instructions ───────────────────────────────────────────── */
+
+.export-instructions {
+  padding: 1rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.85rem;
+}
+
+.export-instructions h4 {
+  margin: 0 0 0.5rem;
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.9rem;
+}
+
+.export-instructions ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.export-instructions li {
+  margin-bottom: 0.25rem;
+}
+
+.export-tip {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #1e3a5f;
+  border-left: 3px solid #2962ff;
+  border-radius: 4px;
+  color: #90caf9;
+  font-size: 0.8rem;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────── */
+
+.code-preview::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.code-preview::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.code-preview::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}

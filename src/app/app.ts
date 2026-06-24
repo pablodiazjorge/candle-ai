@@ -6,6 +6,7 @@ import { CandleChart } from './features/candle-chart/candle-chart';
 import { IndicatorPanel } from './features/indicator-panel/indicator-panel';
 import { PatternOverlay } from './features/pattern-overlay/pattern-overlay';
 import { AnalysisDashboard } from './features/analysis-dashboard/analysis-dashboard';
+import { ExportPanel } from './features/export-panel/export-panel';
 import { LlmSettings } from './features/llm-settings/llm-settings';
 import { LlmSettingsStore } from './core/state/llm-settings.store';
 import { TickerStore } from './core/state/ticker.store';
@@ -19,7 +20,7 @@ import { Candle } from './core/models/candle.model';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [TickerSelector, CandleChart, IndicatorPanel, PatternOverlay, AnalysisDashboard, LlmSettings, TranslatePipe, CurrencyPipe, DecimalPipe],
+  imports: [TickerSelector, CandleChart, IndicatorPanel, PatternOverlay, AnalysisDashboard, ExportPanel, LlmSettings, TranslatePipe, CurrencyPipe, DecimalPipe],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

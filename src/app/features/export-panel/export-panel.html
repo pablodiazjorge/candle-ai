@@ -1,0 +1,42 @@
+<div class="export-panel">
+  <!-- Toggle Header -->
+  <button class="export-header" (click)="toggle()" [attr.aria-expanded]="isOpen()">
+    <span class="export-title">📜 Pine Script v5</span>
+    <span class="export-chevron" [class.open]="isOpen()">▼</span>
+  </button>
+
+  @if (isOpen()) {
+    <div class="export-body">
+      <!-- Actions -->
+      <div class="export-actions">
+        <button class="export-btn copy-btn" (click)="copyToClipboard()" [class.copied]="copied()">
+          {{ copied() ? ('export.copied' | translate) : ('export.copy' | translate) }}
+        </button>
+        <button class="export-btn download-btn" (click)="download()">
+          {{ 'export.download' | translate }}
+        </button>
+        <a class="export-btn tv-link" [href]="tradingViewUrl" target="_blank" rel="noopener">
+          {{ 'export.openTv' | translate }}
+        </a>
+      </div>
+
+      <!-- Code Preview -->
+      <div class="code-preview">
+        <pre><code>@for (line of highlightedLines; track $index) {<span class="line-num">{{ $index + 1 }}</span><span [class]="line.cls">{{ line.text }}</span>
+}</code></pre>
+      </div>
+
+      <!-- Instructions -->
+      <div class="export-instructions">
+        <h4>{{ 'export.instructions' | translate }}</h4>
+        <ol>
+          <li>{{ 'export.step1' | translate }}</li>
+          <li>{{ 'export.step2' | translate }}</li>
+          <li>{{ 'export.step3' | translate }}</li>
+          <li>{{ 'export.step4' | translate }}</li>
+        </ol>
+        <p class="export-tip">{{ 'export.tip' | translate }}</p>
+      </div>
+    </div>
+  }
+</div>
