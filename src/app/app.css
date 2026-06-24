@@ -91,6 +91,24 @@
   color: var(--color-text-primary);
 }
 
+/* === Theme Toggle === */
+.theme-toggle-btn {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--color-btn-bg);
+  color: var(--color-text-primary);
+}
+
 /* === Timeframe Bar === */
 .timeframe-bar {
   display: flex;
@@ -214,6 +232,125 @@
   flex-direction: column;
   gap: 12px;
   overflow: hidden;
+  position: relative;
+}
+
+/* ─── Welcome Screen ─────────────────────────────────────────── */
+.welcome-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  z-index: 10;
+}
+
+.welcome-card {
+  background: var(--color-welcome-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.welcome-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.welcome-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.welcome-desc {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.welcome-steps {
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.welcome-steps li {
+  margin-bottom: 0.5rem;
+}
+
+.welcome-steps strong {
+  color: var(--color-accent);
+}
+
+/* ─── Loading Overlay ────────────────────────────────────────── */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 17, 23, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 20;
+  animation: fadeIn 0.2s ease-out;
+}
+
+[data-theme="light"] .loading-overlay {
+  background: rgba(248, 250, 252, 0.7);
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-spinner);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-text {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+/* ─── Skeleton Loader ────────────────────────────────────────── */
+.skeleton-chart {
+  flex: 1;
+  min-height: 300px;
+  background: var(--color-skeleton);
+  border-radius: 8px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%, 100% { background-color: var(--color-skeleton); }
+  50% { background-color: var(--color-skeleton-shine); }
 }
 
 .chart-area app-candle-chart {
@@ -227,28 +364,118 @@
   overflow: hidden;
 }
 
-/* === Responsive === */
+/* === Responsive ──────────────────────────────────────────────── */
+
+/* Tablet and smaller */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+  }
+
+  .timeframe-bar {
+    gap: 0;
+  }
+
+  .tf-btn {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
+  .top-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 10px;
+    min-height: auto;
+  }
+
+  .app-title {
+    font-size: 14px;
+  }
+
+  .app-subtitle {
+    display: none;
+  }
+
+  /* Sidebar as overlay */
   .sidebar {
     position: fixed;
-    top: 48px;
+    top: 0;
     left: 0;
     bottom: 0;
     z-index: 100;
     width: 280px;
     min-width: 280px;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+    transform: translateX(0);
   }
 
   .sidebar.collapsed {
-    width: 0;
-    min-width: 0;
+    transform: translateX(-100%);
+    width: 280px;
+    min-width: 280px;
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  /* Move timeframe selector below top bar on mobile */
+  .top-bar .timeframe-bar {
+    order: 10;
+    width: 100%;
+    justify-content: center;
+    padding: 4px 0;
+    display: flex;
+  }
+
+  .lang-switcher {
+    margin-left: auto;
   }
 
   .chart-area {
     padding: 8px;
+    gap: 8px;
   }
 
-  .timeframe-bar {
-    display: none;
+  .welcome-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .welcome-icon {
+    font-size: 2.5rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .top-bar {
+    padding: 4px 8px;
+  }
+
+  .menu-btn {
+    font-size: 16px;
+    padding: 2px 6px;
+  }
+
+  .lang-btn {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .tf-btn {
+    font-size: 10px;
+    padding: 3px 5px;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .chart-area {
+    padding: 4px;
   }
 }

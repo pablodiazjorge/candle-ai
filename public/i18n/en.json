@@ -9,7 +9,16 @@
     "change": "Change",
     "status": "Status",
     "analyzing": "Analyzing {{ ticker }}...",
-    "waitingSelection": "Select a ticker to begin"
+    "waitingSelection": "Select a ticker to begin",
+    "loading": "Loading market data..."
+  },
+  "welcome": {
+    "title": "Welcome to Candle AI",
+    "desc": "Your AI-powered technical analysis dashboard. Get started in seconds:",
+    "step1": "<strong>Search</strong> for a ticker (e.g., AAPL, BTC-USD, SPY)",
+    "step2": "<strong>Select</strong> a timeframe from the top bar",
+    "step3": "<strong>Enable</strong> indicators in the sidebar panel",
+    "step4": "<strong>Run</strong> the AI analysis to get insights"
   },
   "ticker": {
     "searchPlaceholder": "Search symbol...",

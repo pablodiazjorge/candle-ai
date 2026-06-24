@@ -2,6 +2,7 @@
 
 /* === Trading Analysis Dashboard — Global Styles === */
 
+/* ─── Dark Theme (default) ─────────────────────────────────────── */
 :root {
   --color-bg-primary: #0f1117;
   --color-bg-secondary: #1a1d2e;
@@ -16,6 +17,39 @@
   --color-red: #ef4444;
   --color-yellow: #eab308;
   --color-purple: #a855f7;
+  --color-surface: #1e293b;
+  --color-surface-hover: #334155;
+  --color-btn-bg: #334155;
+  --color-btn-border: #475569;
+  --color-welcome-bg: #1a1d2e;
+  --color-skeleton: #252940;
+  --color-skeleton-shine: #334155;
+  --color-spinner: #3b82f6;
+}
+
+/* ─── Light Theme ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-green: #16a34a;
+  --color-red: #dc2626;
+  --color-yellow: #ca8a04;
+  --color-purple: #9333ea;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-btn-bg: #e2e8f0;
+  --color-btn-border: #cbd5e1;
+  --color-welcome-bg: #ffffff;
+  --color-skeleton: #e2e8f0;
+  --color-skeleton-shine: #f1f5f9;
+  --color-spinner: #2563eb;
 }
 
 * {

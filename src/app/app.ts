@@ -34,8 +34,13 @@ export class App implements OnInit {
 
   readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'] as const;
   isSidebarOpen = true;
+  isDarkTheme = true;
 
   ngOnInit(): void {
+    // Theme initialization
+    this.isDarkTheme = localStorage.getItem('candle-ai-theme') !== 'light';
+    this.applyTheme();
+
     // i18n setup
     this.translate.addLangs(['en', 'es']);
 
@@ -130,7 +135,29 @@ export class App implements OnInit {
     this.isSidebarOpen = !this.isSidebarOpen;
   }
 
+  toggleTheme(): void {
+    this.isDarkTheme = !this.isDarkTheme;
+    localStorage.setItem('candle-ai-theme', this.isDarkTheme ? 'dark' : 'light');
+    this.applyTheme();
+  }
+
+  get themeLabel(): string {
+    return this.isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode';
+  }
+
+  get isLoading(): boolean {
+    return this.marketData.loading() || this.indicatorsService.computing();
+  }
+
   get currentLang(): string {
     return this.translate.currentLang() ?? 'en';
+  }
+
+  private applyTheme(): void {
+    if (this.isDarkTheme) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
   }
 }

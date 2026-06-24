@@ -12,6 +12,11 @@
     <!-- LLM Settings -->
     <app-llm-settings />
 
+    <!-- Theme toggle -->
+    <button class="theme-toggle-btn" (click)="toggleTheme()" [attr.aria-label]="themeLabel">
+      {{ isDarkTheme ? '☀️' : '🌙' }}
+    </button>
+
     <!-- Language switcher -->
     <div class="lang-switcher">
       <button class="lang-btn" [class.active]="currentLang === 'en'" (click)="switchLanguage('en')">EN</button>
@@ -80,7 +85,38 @@
 
     <!-- Chart Area -->
     <main class="chart-area">
-      <app-candle-chart [candleData]="store.candleData()" [indicators]="store.indicators()" [patterns]="store.patterns()" />
+      <!-- Welcome screen when no ticker -->
+      @if (!store.hasTicker()) {
+        <div class="welcome-screen">
+          <div class="welcome-card">
+            <div class="welcome-icon">📈</div>
+            <h2 class="welcome-title">{{ 'welcome.title' | translate }}</h2>
+            <p class="welcome-desc">{{ 'welcome.desc' | translate }}</p>
+            <ol class="welcome-steps">
+              <li [innerHTML]="'welcome.step1' | translate"></li>
+              <li [innerHTML]="'welcome.step2' | translate"></li>
+              <li [innerHTML]="'welcome.step3' | translate"></li>
+              <li [innerHTML]="'welcome.step4' | translate"></li>
+            </ol>
+          </div>
+        </div>
+      }
+
+      <!-- Loading overlay -->
+      @if (isLoading) {
+        <div class="loading-overlay">
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <span class="loading-text">{{ 'app.loading' | translate }}</span>
+          </div>
+        </div>
+      }
+
+      @if (store.hasTicker()) {
+        <app-candle-chart [candleData]="store.candleData()" [indicators]="store.indicators()" [patterns]="store.patterns()" />
+      } @else {
+        <div class="skeleton-chart"></div>
+      }
 
       @if (store.hasTicker()) {
         <app-analysis-dashboard />
