@@ -56,6 +56,10 @@
             }
           </div>
         </div>
+
+        <div class="sidebar-section">
+          <app-indicator-panel (indicatorsChanged)="onIndicatorsChanged($event)" />
+        </div>
       }
 
       <div class="sidebar-section">

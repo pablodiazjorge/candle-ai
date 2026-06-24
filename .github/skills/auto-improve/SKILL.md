@@ -90,6 +90,7 @@ For each issue with `certainty: high` (3+ occurrences):
 | `powershell` | `powershell-patterns/SKILL.md` | `replace_string_in_file` to add new pitfall/pattern. |
 | `angular` | `/memories/` or angular skill | If Angular-specific API version info → user memory. If scaffold pattern → angular-scaffold skill. |
 | `git` | `git-workflow/SKILL.md` | `replace_string_in_file` to add new pattern. |
+| `skill-creation` | New `.github/skills/<name>/SKILL.md` | Load `skill-creator` skill and follow its procedure to create a new skill from scratch. |
 | `project-specific` | `/memories/repo/` | Create or update repo memory file. |
 | `unknown` | — | Do NOT promote. Leave in `open/`. |
 

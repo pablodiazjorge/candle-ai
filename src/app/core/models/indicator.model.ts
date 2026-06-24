@@ -1,5 +1,30 @@
 /** Indicator calculation results mapped to candle timestamps */
 
+/** Active indicator toggle settings */
+export interface IndicatorSettings {
+  rsi: boolean;
+  macd: boolean;
+  bb: boolean;
+  sma20: boolean;
+  sma50: boolean;
+  sma200: boolean;
+  ema9: boolean;
+  ema21: boolean;
+  volumeProfile: boolean;
+}
+
+export const DEFAULT_INDICATOR_SETTINGS: IndicatorSettings = {
+  rsi: false,
+  macd: false,
+  bb: false,
+  sma20: false,
+  sma50: false,
+  sma200: false,
+  ema9: false,
+  ema21: false,
+  volumeProfile: false,
+};
+
 export interface RsiResult {
   /** Map of timestamp → RSI value */
   values: Record<number, number>;

@@ -31,5 +31,27 @@
     "connectionOk": "Connection successful ✓",
     "connectionFailed": "Connection failed ✗",
     "localInfo": "Tip: Run a local model with llama.cpp (server) or Ollama. Use http://localhost:PORT/v1 as the base URL."
+  },
+  "indicator": {
+    "title": "Indicators",
+    "clearAll": "Clear All",
+    "rsi": "RSI (14)",
+    "rsiDesc": "Relative Strength Index",
+    "macd": "MACD (12,26,9)",
+    "macdDesc": "Moving Avg. Convergence Divergence",
+    "bb": "BB (20,2)",
+    "bbDesc": "Bollinger Bands",
+    "sma20": "SMA 20",
+    "sma20Desc": "Simple Moving Average 20",
+    "sma50": "SMA 50",
+    "sma50Desc": "Simple Moving Average 50",
+    "sma200": "SMA 200",
+    "sma200Desc": "Simple Moving Average 200",
+    "ema9": "EMA 9",
+    "ema9Desc": "Exponential Moving Average 9",
+    "ema21": "EMA 21",
+    "ema21Desc": "Exponential Moving Average 21",
+    "volumeProfile": "Volume Profile",
+    "volumeProfileDesc": "Volume by price level"
   }
 }

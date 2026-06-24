@@ -16,8 +16,11 @@ import {
   Time,
   CandlestickData,
   LineData,
+  HistogramData,
   CandlestickSeries,
   LineSeries,
+  HistogramSeries,
+  PriceScaleMode,
 } from 'lightweight-charts';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Candle } from '../../core/models/candle.model';
@@ -40,6 +43,10 @@ export class CandleChart implements AfterViewInit, OnDestroy {
   private candleSeries: ISeriesApi<'Candlestick'> | null = null;
   private indicatorSeries: ISeriesApi<'Line'>[] = [];
   private volumeSeries: ISeriesApi<'Histogram'> | null = null;
+  private rsiSeries: ISeriesApi<'Line'> | null = null;
+  private macdHistogramSeries: ISeriesApi<'Histogram'> | null = null;
+  private macdSignalSeries: ISeriesApi<'Line'> | null = null;
+  private macdLineSeries: ISeriesApi<'Line'> | null = null;
 
   private readonly resizeObserver = new ResizeObserver(() => {
     if (this.chart && this.chartContainer) {
@@ -182,6 +189,139 @@ export class CandleChart implements AfterViewInit, OnDestroy {
         'BB Lower',
       );
     }
+
+    // RSI (on its own price scale at bottom portion of pane)
+    if (ind.rsi) {
+      this.renderRsi(ind.rsi.values);
+    }
+
+    // MACD (on its own price scale in same pane)
+    if (ind.macd) {
+      this.renderMacd(ind.macd.values);
+    }
+  }
+
+  private renderRsi(values: Record<number, number>): void {
+    if (!this.chart) return;
+
+    this.rsiSeries = this.chart.addSeries(LineSeries, {
+      color: '#f59e0b',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      crosshairMarkerVisible: false,
+      priceScaleId: 'rsi-scale',
+      priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
+    });
+
+    const lineData: LineData[] = Object.entries(values)
+      .map(([time, value]) => ({ time: Number(time) as Time, value }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    this.rsiSeries.setData(lineData);
+
+    // Configure RSI price scale
+    this.chart.priceScale('rsi-scale').applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+      mode: PriceScaleMode.Normal,
+      borderColor: '#f59e0b',
+      autoScale: false,
+    });
+
+    // Add overbought/oversold reference lines
+    this.indicatorSeries.push(
+      this.chart.addSeries(LineSeries, {
+        color: '#ef444466',
+        lineWidth: 1,
+        lineStyle: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        priceScaleId: 'rsi-scale',
+      }),
+    );
+    const firstTime = Number(Object.keys(values)[0]) as Time;
+    const lastTime = Number(Object.keys(values)[Object.keys(values).length - 1]) as Time;
+    this.indicatorSeries[this.indicatorSeries.length - 1].setData([
+      { time: firstTime, value: 70 },
+      { time: lastTime, value: 70 },
+    ]);
+
+    this.indicatorSeries.push(
+      this.chart.addSeries(LineSeries, {
+        color: '#22c55e66',
+        lineWidth: 1,
+        lineStyle: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        priceScaleId: 'rsi-scale',
+      }),
+    );
+    this.indicatorSeries[this.indicatorSeries.length - 1].setData([
+      { time: firstTime, value: 30 },
+      { time: lastTime, value: 30 },
+    ]);
+  }
+
+  private renderMacd(values: Record<number, { macd: number; signal: number; histogram: number }>): void {
+    if (!this.chart) return;
+
+    // MACD Histogram
+    this.macdHistogramSeries = this.chart.addSeries(HistogramSeries, {
+      priceLineVisible: false,
+      lastValueVisible: false,
+      priceScaleId: 'macd-scale',
+      priceFormat: { type: 'price', precision: 3, minMove: 0.001 },
+    });
+
+    const histData: HistogramData[] = Object.entries(values)
+      .map(([time, v]) => ({
+        time: Number(time) as Time,
+        value: v.histogram,
+        color: v.histogram >= 0 ? '#22c55e66' : '#ef444466',
+      }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    this.macdHistogramSeries.setData(histData);
+
+    // MACD Signal line
+    this.macdSignalSeries = this.chart.addSeries(LineSeries, {
+      color: '#ef4444',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceScaleId: 'macd-scale',
+    });
+
+    const signalData: LineData[] = Object.entries(values)
+      .map(([time, v]) => ({ time: Number(time) as Time, value: v.signal }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    this.macdSignalSeries.setData(signalData);
+
+    // MACD line
+    this.macdLineSeries = this.chart.addSeries(LineSeries, {
+      color: '#3b82f6',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceScaleId: 'macd-scale',
+    });
+
+    const macdData: LineData[] = Object.entries(values)
+      .map(([time, v]) => ({ time: Number(time) as Time, value: v.macd }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    this.macdLineSeries.setData(macdData);
+
+    // Configure MACD price scale
+    this.chart.priceScale('macd-scale').applyOptions({
+      scaleMargins: { top: 0.9, bottom: 0.02 },
+      mode: PriceScaleMode.Normal,
+    });
   }
 
   private addLineSeries(values: Record<number, number>, color: string, _label: string): void {
@@ -211,5 +351,22 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       this.chart?.removeSeries(series);
     }
     this.indicatorSeries = [];
+
+    if (this.rsiSeries) {
+      this.chart?.removeSeries(this.rsiSeries);
+      this.rsiSeries = null;
+    }
+    if (this.macdHistogramSeries) {
+      this.chart?.removeSeries(this.macdHistogramSeries);
+      this.macdHistogramSeries = null;
+    }
+    if (this.macdSignalSeries) {
+      this.chart?.removeSeries(this.macdSignalSeries);
+      this.macdSignalSeries = null;
+    }
+    if (this.macdLineSeries) {
+      this.chart?.removeSeries(this.macdLineSeries);
+      this.macdLineSeries = null;
+    }
   }
 }

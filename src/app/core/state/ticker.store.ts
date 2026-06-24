@@ -1,6 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Candle } from '../models/candle.model';
-import { IndicatorResults } from '../models/indicator.model';
+import { IndicatorResults, IndicatorSettings, DEFAULT_INDICATOR_SETTINGS } from '../models/indicator.model';
 import { DetectedPattern } from '../models/pattern.model';
 import { AnalysisResult } from '../models/analysis.model';
 import { Timeframe, Range } from '../services/market-data.service';
@@ -11,6 +11,7 @@ export interface TickerState {
   range: Range;
   candleData: Candle[];
   indicators: IndicatorResults | null;
+  activeIndicators: IndicatorSettings;
   patterns: DetectedPattern[];
   analysis: AnalysisResult | null;
   watchlist: string[];
@@ -22,6 +23,7 @@ const initialState: TickerState = {
   range: '6mo',
   candleData: [],
   indicators: null,
+  activeIndicators: DEFAULT_INDICATOR_SETTINGS,
   patterns: [],
   analysis: null,
   watchlist: ['SPY', 'QQQ', 'AAPL', 'MSFT', 'BTC-USD', 'GC=F'],
@@ -38,6 +40,7 @@ export class TickerStore {
   readonly patterns = signal<DetectedPattern[]>(initialState.patterns);
   readonly analysis = signal<AnalysisResult | null>(initialState.analysis);
   readonly watchlist = signal<string[]>(initialState.watchlist);
+  readonly activeIndicators = signal<IndicatorSettings>(initialState.activeIndicators);
 
   // --- Computed ---
   readonly hasData = computed(() => this.candleData().length > 0);
@@ -59,6 +62,7 @@ export class TickerStore {
     this.selectedTicker.set(ticker);
     this.candleData.set([]);
     this.indicators.set(null);
+    this.activeIndicators.set(DEFAULT_INDICATOR_SETTINGS);
     this.patterns.set([]);
     this.analysis.set(null);
   }
@@ -85,6 +89,14 @@ export class TickerStore {
 
   setAnalysis(a: AnalysisResult): void {
     this.analysis.set(a);
+  }
+
+  toggleIndicator(key: keyof IndicatorSettings): void {
+    this.activeIndicators.update((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  setActiveIndicators(settings: IndicatorSettings): void {
+    this.activeIndicators.set(settings);
   }
 
   addToWatchlist(ticker: string): void {
@@ -121,6 +133,7 @@ export class TickerStore {
     this.selectedTicker.set(null);
     this.candleData.set([]);
     this.indicators.set(null);
+    this.activeIndicators.set(DEFAULT_INDICATOR_SETTINGS);
     this.patterns.set([]);
     this.analysis.set(null);
   }

@@ -31,5 +31,27 @@
     "connectionOk": "Conexión exitosa ✓",
     "connectionFailed": "Conexión fallida ✗",
     "localInfo": "Tip: Ejecuta un modelo local con llama.cpp (server) u Ollama. Usa http://localhost:PUERTO/v1 como URL base."
+  },
+  "indicator": {
+    "title": "Indicadores",
+    "clearAll": "Desactivar Todos",
+    "rsi": "RSI (14)",
+    "rsiDesc": "Índice de Fuerza Relativa",
+    "macd": "MACD (12,26,9)",
+    "macdDesc": "Convergencia/Divergencia de Medias Móviles",
+    "bb": "BB (20,2)",
+    "bbDesc": "Bandas de Bollinger",
+    "sma20": "SMA 20",
+    "sma20Desc": "Media Móvil Simple 20",
+    "sma50": "SMA 50",
+    "sma50Desc": "Media Móvil Simple 50",
+    "sma200": "SMA 200",
+    "sma200Desc": "Media Móvil Simple 200",
+    "ema9": "EMA 9",
+    "ema9Desc": "Media Móvil Exponencial 9",
+    "ema21": "EMA 21",
+    "ema21Desc": "Media Móvil Exponencial 21",
+    "volumeProfile": "Perfil de Volumen",
+    "volumeProfileDesc": "Volumen por nivel de precio"
   }
 }
