@@ -209,7 +209,19 @@ Return a JSON object with this exact structure:
       jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
     }
 
-    const parsed = JSON.parse(jsonStr);
+    // Try to extract JSON object from within reasoning text (qwen3, deepseek-r1, etc.)
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      return this.fallbackResult(ticker, 'Failed to parse LLM response as JSON');
+    }
 
     return {
       ticker,
@@ -246,5 +258,27 @@ Return a JSON object with this exact structure:
 
   private min(candles: Candle[], field: keyof Candle): number {
     return candles.reduce((m, c) => Math.min(m, c[field] as number), Infinity);
+  }
+
+  /** Fallback result when JSON parsing fails (e.g., reasoning models) */
+  private fallbackResult(ticker: string, errorNote: string): AnalysisResult {
+    return {
+      ticker,
+      timeframe: this.tickerStore.timeframe(),
+      generatedAt: Date.now(),
+      trend: {
+        direction: 'sideways',
+        strength: 'moderate',
+        description: `Analysis unavailable — ${errorNote}. Try again or use a different model.`,
+      },
+      levels: [],
+      signals: [],
+      risk: {
+        level: 'medium',
+        score: 50,
+        description: 'Unable to assess risk — the model response could not be parsed as JSON.',
+      },
+      summary: `The model returned a response that could not be parsed as JSON. This happens with reasoning/thinking models (o1, o3, deepseek-reasoner, deepseek-r1, qwen3, qwq). Use a standard chat/instruct model instead: llama3.1, gpt-4o, deepseek-chat, claude-3.5-sonnet, mistral, gemma, phi3.`,
+    };
   }
 }

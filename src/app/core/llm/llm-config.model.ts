@@ -15,8 +15,34 @@ export interface LlmProviderConfig {
   temperature: number;
 }
 
-/** Pre-built provider presets — user can also define custom */
+/**
+ * Pre-built provider presets.
+ *
+ * IMPORTANT: Use instruct/chat models, NOT reasoning models.
+ * Reasoning models (deepseek-reasoner, o1, o3, qwen3, qwq, deepseek-r1)
+ * output chain-of-thought that can't be parsed as JSON.
+ *
+ * Recommended local setup: install Ollama → `ollama pull llama3.1:8b`
+ */
 export const LLM_PROVIDER_PRESETS: LlmProviderConfig[] = [
+  // ── Local (free, private, runs on your hardware) ──
+  {
+    name: 'Ollama (local)',
+    baseUrl: 'http://localhost:11434/v1',
+    apiKey: 'ollama',
+    model: 'llama3.1:8b',
+    maxTokens: 2048,
+    temperature: 0.3,
+  },
+  {
+    name: 'llama.cpp (local)',
+    baseUrl: 'http://localhost:8080/v1',
+    apiKey: 'not-needed',
+    model: 'local-model',
+    maxTokens: 2048,
+    temperature: 0.3,
+  },
+  // ── Cloud APIs (use chat models, NOT reasoner/reasoning variants) ──
   {
     name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
@@ -46,22 +72,6 @@ export const LLM_PROVIDER_PRESETS: LlmProviderConfig[] = [
     baseUrl: 'https://api.together.xyz/v1',
     apiKey: '',
     model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
-    maxTokens: 2048,
-    temperature: 0.3,
-  },
-  {
-    name: 'llama.cpp (local)',
-    baseUrl: 'http://localhost:8080/v1',
-    apiKey: 'not-needed',
-    model: 'local-model',
-    maxTokens: 2048,
-    temperature: 0.3,
-  },
-  {
-    name: 'Ollama (local)',
-    baseUrl: 'http://localhost:11434/v1',
-    apiKey: 'ollama',
-    model: 'llama3.2',
     maxTokens: 2048,
     temperature: 0.3,
   },

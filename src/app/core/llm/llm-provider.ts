@@ -1,6 +1,10 @@
 /**
  * OpenAI-compatible LLM provider.
- * Works with DeepSeek, OpenAI, Groq, Together AI, llama.cpp, Ollama, etc.
+ * Works with Ollama, llama.cpp, DeepSeek, OpenAI, Groq, Together AI, etc.
+ *
+ * NOTE: reasoning/thinking models (o1, o3, deepseek-r1, qwen3, qwq, etc.)
+ * output chain-of-thought that can't be parsed as JSON.
+ * Use standard chat/instruct models for structured output.
  */
 
 export interface LlmMessage {
@@ -54,8 +58,12 @@ export class LlmProvider {
       ],
       max_tokens: this.maxTokens,
       temperature: this.temperature,
-      response_format: { type: 'json_object' },
     };
+
+    // Only send response_format for providers that support it (OpenAI, DeepSeek)
+    if (!this.baseUrl.includes('localhost') && !this.baseUrl.includes('127.0.0.1') && !this.baseUrl.includes('ollama')) {
+      body.response_format = { type: 'json_object' };
+    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -72,7 +80,12 @@ export class LlmProvider {
     }
 
     const json: LlmCompletionResponse = await response.json();
-    const content = json.choices?.[0]?.message?.content;
+    let content = json.choices?.[0]?.message?.content;
+
+    // Fallback: reasoning models (qwen3, deepseek-r1, etc.) put output in `reasoning`
+    if (!content) {
+      content = (json.choices?.[0]?.message as Record<string, unknown>)?.['reasoning'] as string;
+    }
 
     if (!content) {
       throw new Error('Empty response from LLM');

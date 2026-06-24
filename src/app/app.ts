@@ -36,6 +36,16 @@ export class App implements OnInit {
   isSidebarOpen = true;
   isDarkTheme = true;
 
+  constructor() {
+    // React to ticker changes: load market data (must be in constructor for effect())
+    effect(() => {
+      const ticker = this.store.selectedTicker();
+      if (ticker) {
+        this.loadMarketData(ticker);
+      }
+    });
+  }
+
   ngOnInit(): void {
     // Theme initialization
     this.isDarkTheme = localStorage.getItem('candle-ai-theme') !== 'light';
@@ -54,14 +64,6 @@ export class App implements OnInit {
 
     // Clear expired cache entries on startup
     this.cacheStore.purgeExpired();
-
-    // React to ticker changes: load market data
-    effect(() => {
-      const ticker = this.store.selectedTicker();
-      if (ticker) {
-        this.loadMarketData(ticker);
-      }
-    });
   }
 
   /** Load market data for a ticker: cache → API → mock fallback */
