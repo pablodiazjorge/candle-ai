@@ -1,0 +1,111 @@
+<div class="analysis-dashboard" [class.collapsed]="!isOpen()">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h2 class="dashboard-title">{{ 'analysis.title' | translate }}</h2>
+      @if (isAnalyzing) {
+        <span class="analyzing-badge">{{ 'analysis.analyzing' | translate }}...</span>
+      }
+    </div>
+    <div class="header-actions">
+      @if (isConfigured) {
+        <button class="btn-analyze" (click)="runAnalysis()" [disabled]="isAnalyzing || !store.hasTicker()">
+          @if (isAnalyzing) {
+            <span class="spinner"></span>
+          }
+          {{ isAnalyzing ? ('analysis.analyzing' | translate) : (analysis ? ('analysis.refresh' | translate) : ('analysis.run' | translate)) }}
+        </button>
+      } @else {
+        <span class="config-warning">{{ 'analysis.notConfigured' | translate }}</span>
+      }
+      <button class="btn-toggle" (click)="toggle()" [attr.aria-label]="'analysis.toggle' | translate">
+        {{ isOpen() ? '▲' : '▼' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  @if (error()) {
+    <div class="analysis-error">
+      ⚠️ {{ error() }}
+    </div>
+  }
+
+  <!-- Body -->
+  @if (isOpen() && analysis; as a) {
+    <div class="dashboard-body">
+      <!-- Trend -->
+      <section class="analysis-section">
+        <h3 class="section-title">{{ 'analysis.trend' | translate }}</h3>
+        <div class="trend-badge" [class]="sentimentClass(a.trend.direction)">
+          {{ 'analysis.' + a.trend.direction | translate }}
+          <span class="trend-strength">({{ 'analysis.' + a.trend.strength | translate }})</span>
+        </div>
+        <p class="section-desc">{{ a.trend.description }}</p>
+      </section>
+
+      <!-- Levels -->
+      @if (a.levels.length > 0) {
+        <section class="analysis-section">
+          <h3 class="section-title">{{ 'analysis.levels' | translate }}</h3>
+          <div class="levels-grid">
+            @for (level of a.levels; track level.price + level.type) {
+              <div class="level-card" [class]="level.type">
+                <div class="level-header">
+                  <span class="level-type">{{ level.type === 'resistance' ? ('analysis.resistance' | translate) : ('analysis.support' | translate) }}</span>
+                  <span class="level-strength">{{ 'analysis.' + level.strength | translate }}</span>
+                </div>
+                <span class="level-price">{{ level.price | currency }}</span>
+                <span class="level-desc">{{ level.description }}</span>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Signals -->
+      @if (a.signals.length > 0) {
+        <section class="analysis-section">
+          <h3 class="section-title">{{ 'analysis.signals' | translate }}</h3>
+          <div class="signals-list">
+            @for (signal of a.signals; track signal.indicator + signal.signal) {
+              <div class="signal-item" [class]="sentimentClass(signal.signal)">
+                <span class="signal-indicator">{{ signal.indicator }}</span>
+                <span class="signal-badge">{{ 'analysis.' + signal.signal | translate }}</span>
+                <span class="signal-desc">{{ signal.description }}</span>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Risk -->
+      <section class="analysis-section">
+        <h3 class="section-title">{{ 'analysis.risk' | translate }}</h3>
+        <div class="risk-bar">
+          <div class="risk-level" [class]="riskClass(a.risk.level)">
+            {{ 'analysis.' + a.risk.level | translate }}
+          </div>
+          <div class="risk-score-bar">
+            <div class="risk-score-fill" [style.width.%]="a.risk.score" [class]="riskClass(a.risk.level)"></div>
+          </div>
+          <span class="risk-score">{{ a.risk.score }}/100</span>
+        </div>
+        <p class="section-desc">{{ a.risk.description }}</p>
+      </section>
+
+      <!-- Summary -->
+      <section class="analysis-section summary-section">
+        <h3 class="section-title">{{ 'analysis.summary' | translate }}</h3>
+        <p class="summary-text">{{ a.summary }}</p>
+        <p class="analysis-meta">
+          {{ 'analysis.generated' | translate }} {{ a.generatedAt | date:'medium' }}
+        </p>
+      </section>
+    </div>
+  } @else if (isOpen() && !analysis && !isAnalyzing && isConfigured && store.hasTicker()) {
+    <div class="dashboard-empty">
+      <p>{{ 'analysis.empty' | translate }}</p>
+    </div>
+  }
+</div>

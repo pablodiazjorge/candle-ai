@@ -9,10 +9,10 @@
 
 | Status | Count |
 |--------|-------|
-| 🔴 Open (pending) | 3 |
+| 🔴 Open (pending) | 6 |
 | 🟢 Promoted | 0 |
 | ⚫ Discarded | 0 |
-| **Total** | **3** |
+| **Total** | **6** |
 
 ---
 
@@ -26,7 +26,10 @@
 |----|-------|----------|-----------|-------------|-------|------|
 | ISSUE-20260624-3772 | TS isolatedModules requires `export type` for type re-exports | library-api | low | 1 | 2026-06-24 | 2026-06-24 |
 | ISSUE-20260624-be15 | lightweight-charts v5 markers use createSeriesMarkers() plugin, not series.setMarkers() | library-api | low | 1 | 2026-06-24 | 2026-06-24 |
-| ISSUE-20260624-534f | Angular templates: getters accessed without (), signal inputs with () | angular | low | 1 | 2026-06-24 | 2026-06-24 |
+| ISSUE-20260624-534f | Angular templates: getters accessed without (), signal inputs with () | angular | medium | 2 | 2026-06-24 | 2026-06-24 |
+| ISSUE-20260624-03f9 | Copilot Chat: 'Include Referenced Instructions' must be ON for content injection | tool-config | low | 1 | 2026-06-24 | 2026-06-24 |
+| ISSUE-20260624-b91f | TS noPropertyAccessFromIndexSignature requires bracket notation for JSON.parse() | library-api | low | 1 | 2026-06-24 | 2026-06-24 |
+| ISSUE-20260624-3259 | Angular standalone components: pipes must be explicitly imported | angular | low | 1 | 2026-06-24 | 2026-06-24 |
 
 ---
 

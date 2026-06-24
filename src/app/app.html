@@ -81,6 +81,10 @@
     <!-- Chart Area -->
     <main class="chart-area">
       <app-candle-chart [candleData]="store.candleData()" [indicators]="store.indicators()" [patterns]="store.patterns()" />
+
+      @if (store.hasTicker()) {
+        <app-analysis-dashboard />
+      }
     </main>
   </div>
 </div>

@@ -210,6 +210,20 @@
   flex: 1;
   min-width: 0;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.chart-area app-candle-chart {
+  flex: 1;
+  min-height: 300px;
+}
+
+.chart-area app-analysis-dashboard {
+  flex-shrink: 0;
+  max-height: 40%;
   overflow: hidden;
 }
 
