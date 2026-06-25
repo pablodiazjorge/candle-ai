@@ -243,7 +243,11 @@ The `.github/skills/` directory and `.github/instructions/default.instructions.m
 
 ## Documentation
 
-- [docs/architecture.md](docs/architecture.md) — Full architectural decision record (9 ADRs, system context, data flow, security)
+- [docs/architecture.md](docs/architecture.md) — Full architectural decision record (13 ADRs, system context, data flow, security)
+- [docs/analytical-framework.md](docs/analytical-framework.md) — Analysis methodology: market regime classification, three-pillar signal hierarchy, probabilistic confluence model, risk integration, AI role
+- [docs/classical-patterns.md](docs/classical-patterns.md) — Canonical reference for 30+ technical analysis patterns: recognition criteria, market psychology, statistical edge, reliability grading, combination matrix
+- [docs/classical-patterns-2026.md](docs/classical-patterns-2026.md) — Modern market adaptations: how algo trading, 0DTE options, passive flows, and market fragmentation change pattern reliability in 2026
+- [docs/development-roadmap.md](docs/development-roadmap.md) — Complete development progression: 5 completed epics with git history, 3 planned epics with deliverables and motivations
 - [prompt-forge](https://github.com/pablodiazjorge/prompt-forge) — Agentic skills infrastructure used in this project
 
 ---
