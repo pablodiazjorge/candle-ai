@@ -24,7 +24,7 @@ export type Range = '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | '
 
 @Injectable({ providedIn: 'root' })
 export class MarketDataService {
-  private readonly yahooBase = 'https://query1.finance.yahoo.com/v8/finance/chart';
+  private readonly yahooBase = '/api/yahoo/v8/finance/chart';
 
   /** Loading signal */
   readonly loading = signal(false);
@@ -122,17 +122,23 @@ function generateSynthetic(symbol: string, interval: Timeframe, range: Range): C
   };
   const step = intervalSeconds[interval] ?? 86400;
 
-  const rangeCounts: Record<Range, number> = {
+  // Number of trading days corresponding to each range
+  const tradingDays: Record<Range, number> = {
     '1d': 1, '5d': 5, '1mo': 21, '3mo': 63, '6mo': 126,
     '1y': 252, '2y': 504, '5y': 1260, 'max': 2520,
   };
-  // Cap intraday candles to avoid absurd counts
-  const count = Math.min(rangeCounts[range] ?? 126, step < 3600 ? 2000 : 9999);
+  const days = tradingDays[range] ?? 126;
+
+  // Candles per trading day (6.5 hours of trading = 23400 seconds)
+  const tradingDaySeconds = 23400;
+  const candlesPerDay = step >= 86400 ? 1 : Math.round(tradingDaySeconds / step);
+  const totalCandles = Math.min(days * candlesPerDay, 5000); // cap for performance
+
   const candles: Candle[] = [];
   const now = Math.floor(Date.now() / 1000);
   let price = basePrice;
 
-  for (let i = count - 1; i >= 0; i--) {
+  for (let i = totalCandles - 1; i >= 0; i--) {
     const change = (rng() - 0.5 + trend) * volatility;
     const open = price;
     const close = price + change;
@@ -141,7 +147,7 @@ function generateSynthetic(symbol: string, interval: Timeframe, range: Range): C
     price = close;
 
     candles.push({
-      time: now - i * step,
+      time: (now - i * step) as any,
       open: +open.toFixed(2),
       high: +high.toFixed(2),
       low: +low.toFixed(2),
@@ -157,33 +163,34 @@ function priceRange(symbol: string): { min: number; max: number } {
   const s = symbol.toUpperCase();
   if (s.includes('-USD')) return { min: 100, max: 100000 };       // Crypto
   if (s.includes('=X'))  return { min: 0.5, max: 2.0 };           // Forex
-  if (s.startsWith('^')) return { min: 1000, max: 20000 };        // Indices
-  if (s.includes('=F'))  return { min: 20, max: 2000 };           // Commodities
-  return { min: 10, max: 700 };                                    // Stocks/ETFs
+  if (s.startsWith('^')) return { min: 1000, max: 60000 };        // Indices
+  if (s.includes('=F'))  return { min: 20, max: 5000 };           // Commodities
+  return { min: 10, max: 800 };                                    // Stocks/ETFs
 }
 
 /** Approximate real-world prices for well-known tickers (mid-2026) */
 function knownPrice(symbol: string): number | null {
   const prices: Record<string, number> = {
-    'BTC-USD': 62000, 'ETH-USD': 2400, 'SOL-USD': 140, 'DOGE-USD': 0.12,
+    'BTC-USD': 60106, 'ETH-USD': 1577, 'SOL-USD': 72, 'DOGE-USD': 0.08,
     'XRP-USD': 2.30, 'ADA-USD': 0.45, 'AVAX-USD': 28, 'DOT-USD': 6.50,
     'LINK-USD': 15, 'SHIB-USD': 0.000018, 'PEPE-USD': 0.000008,
-    'SPY': 600, 'QQQ': 520, 'IWM': 225, 'DIA': 440, 'VTI': 310, 'VOO': 550,
-    'GLD': 270, 'SLV': 32, 'TLT': 88, 'ARKK': 52, 'SOXX': 250, 'SMH': 280,
-    'AAPL': 250, 'MSFT': 500, 'GOOGL': 190, 'AMZN': 225, 'NVDA': 1100,
-    'META': 620, 'TSLA': 350, 'NFLX': 950, 'AMD': 110, 'INTC': 30,
+    'SPY': 734, 'QQQ': 713, 'IWM': 300, 'DIA': 519, 'VTI': 337, 'VOO': 675,
+    'GLD': 376, 'SLV': 38, 'TLT': 82, 'ARKK': 56, 'SOXX': 260, 'SMH': 290,
+    'AAPL': 277, 'MSFT': 510, 'GOOGL': 343, 'AMZN': 232, 'NVDA': 194,
+    'META': 555, 'TSLA': 384, 'NFLX': 75, 'AMD': 520, 'INTC': 129,
+    'SPCX': 85,
     'BA': 190, 'JPM': 260, 'GS': 600, 'BAC': 48, 'WMT': 95, 'COST': 980,
     'DIS': 105, 'UBER': 80, 'PYPL': 85, 'ADBE': 450, 'CRM': 290,
-    'ORCL': 180, 'IBM': 260, 'QCOM': 200, 'AVGO': 1800, 'LLY': 900,
+    'ORCL': 180, 'IBM': 260, 'QCOM': 200, 'AVGO': 372, 'LLY': 1206,
     'UNH': 620, 'JNJ': 170, 'PFE': 30, 'XOM': 125, 'CVX': 175,
     'CAT': 380, 'GE': 210, 'F': 12, 'PLTR': 110, 'HOOD': 55, 'COIN': 280,
-    'SNAP': 12, 'RBLX': 45, 'MSTR': 1500, 'RDDT': 180, 'ARM': 160,
-    'GC=F': 3200, 'CL=F': 68, 'SI=F': 35, 'NG=F': 3.50, 'HG=F': 5.20,
+    'SNAP': 4.4, 'RBLX': 45, 'MSTR': 1500, 'RDDT': 168, 'ARM': 160,
+    'GC=F': 4100, 'CL=F': 69, 'SI=F': 35, 'NG=F': 3.50, 'HG=F': 5.20,
     'PL=F': 1050, 'ZC=F': 460, 'ZS=F': 1100, 'ZW=F': 580,
     'EURUSD=X': 1.08, 'GBPUSD=X': 1.32, 'USDJPY=X': 157, 'USDCHF=X': 0.88,
     'AUDUSD=X': 0.66, 'USDCAD=X': 1.37, 'NZDUSD=X': 0.61,
-    '^GSPC': 5900, '^IXIC': 21000, '^DJI': 42000, '^RUT': 2250, '^VIX': 16,
-    'BABA': 140, 'TSM': 200, 'NIO': 5, 'SHEL': 38, 'BP': 35, 'NVS': 120,
+    '^GSPC': 7369, '^IXIC': 25393, '^DJI': 51930, '^RUT': 3006, '^VIX': 19,
+    'BABA': 95, 'TSM': 432, 'NIO': 4.8, 'SHEL': 38, 'BP': 35, 'NVS': 120,
     'TM': 180, 'SONY': 130, 'BHP': 55, 'RIO': 65, 'SAP': 230, 'ASML': 1000,
     'VALE': 12, 'T': 28, 'VZ': 44, 'TGT': 120, 'LOW': 270, 'HD': 420,
     'AXP': 290, 'MA': 550, 'V': 340, 'ABNB': 160, 'DASH': 190, 'DDOG': 140,

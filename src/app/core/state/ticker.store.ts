@@ -26,7 +26,7 @@ const initialState: TickerState = {
   activeIndicators: DEFAULT_INDICATOR_SETTINGS,
   patterns: [],
   analysis: null,
-  watchlist: ['SPY', 'QQQ', 'AAPL', 'NVDA', 'BTC-USD', 'GC=F'],
+  watchlist: ['SPY', 'QQQ', 'NVDA', 'META', 'GOOGL', 'TSLA', 'SPCX', 'BTC-USD'],
 };
 
 @Injectable({ providedIn: 'root' })
@@ -76,6 +76,13 @@ export class TickerStore {
 
   setTimeframe(tf: Timeframe): void {
     this.timeframe.set(tf);
+    // Clamp range for intraday timeframes — Yahoo Finance rejects
+    // range=max for 1m/5m/15m/1h/4h intervals
+    const maxRange = intradayMaxRange(tf);
+    const current = this.range();
+    if (rangeRank(current) > rangeRank(maxRange)) {
+      this.range.set(maxRange as Range);
+    }
   }
 
   setRange(r: Range): void {
@@ -172,5 +179,28 @@ export class TickerStore {
     this.patterns.set([]);
     this.regime.set(null);
     this.analysis.set(null);
+  }
+}
+
+// ─── Intraday range clamping ─────────────────────────────────────
+
+/** Rank ranges so we can compare them: higher = more data */
+function rangeRank(r: string): number {
+  const order = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max'];
+  return order.indexOf(r);
+}
+
+/**
+ * Yahoo Finance limits intraday intervals to certain maximum ranges.
+ * If the range exceeds what the interval supports, the API returns 400.
+ */
+function intradayMaxRange(tf: string): string {
+  switch (tf) {
+    case '1m':   return '5d';    // 1-minute bars: max ~5 days
+    case '5m':   return '1mo';   // 5-minute bars: max ~1 month
+    case '15m':  return '1mo';   // 15-minute bars: max ~1 month
+    case '1h':   return '3mo';   // hourly bars: max ~3 months
+    case '4h':   return '6mo';   // 4-hour bars: max ~6 months
+    default:     return 'max';   // daily/weekly: unlimited
   }
 }

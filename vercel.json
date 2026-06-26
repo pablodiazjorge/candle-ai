@@ -1,0 +1,14 @@
+{
+  "buildCommand": "ng build",
+  "outputDirectory": "dist/candle-ai/browser",
+  "rewrites": [
+    {
+      "source": "/api/yahoo/:path*",
+      "destination": "https://query1.finance.yahoo.com/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

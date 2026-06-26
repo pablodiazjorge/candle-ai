@@ -1,0 +1,13 @@
+{
+  "/api/yahoo": {
+    "target": "https://query1.finance.yahoo.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/yahoo": ""
+    },
+    "headers": {
+      "User-Agent": "Mozilla/5.0"
+    }
+  }
+}
