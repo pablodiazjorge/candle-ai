@@ -396,7 +396,7 @@ commit is a working state — applied to the remaining work.
 ## Technical Feasibility Assessment
 
 Audited 2026-06-25 against: Angular 22 (standalone, Signals, zoneless),
-Lightweight Charts v5, Yahoo Finance free API (CORS-blocked), LLM provider
+Lightweight Charts v5, Yahoo Finance free API (proxied via /api/yahoo), LLM provider
 (OpenAI-compatible), Dexie.js (IndexedDB), Web Workers.
 
 ### Epic 6: Quantitative Foundation

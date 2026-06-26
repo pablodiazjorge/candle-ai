@@ -27,7 +27,7 @@ The architecture is designed around five principles:
 | Zero backend | Everything runs in the browser. No server, no database, no API middleware |
 | Non-blocking UI | Indicator calculations run in Web Workers; the chart stays responsive |
 | Reactive by default | Angular Signals replace RxJS; zoneless change detection |
-| Progressive enhancement | Falls back to mock data, works without LLM, degrades gracefully |
+| Progressive enhancement | Falls back to synthetic data if Yahoo Finance is unreachable, works without LLM, degrades gracefully |
 | Local-first | Default LLM is Ollama on your hardware; cloud providers are optional |
 
 For the full rationale behind every architectural decision, see
@@ -101,9 +101,10 @@ src/app/
 
 ### Market Data
 
-Fetches OHLCV candles from Yahoo Finance (`query1.finance.yahoo.com/v8/finance/chart/{symbol}`).
-Caches results in IndexedDB with a 1-hour TTL. Falls back to mock SPY 6-month
-data when the API is unreachable (CORS in browser environments).
+Fetches OHLCV candles from Yahoo Finance via `/api/yahoo/v8/finance/chart/{symbol}`
+(proxied through the Angular dev server in development; Vercel rewrites in production).
+Caches results in IndexedDB with a 1-hour TTL. Falls back to per-ticker
+synthetic data when Yahoo Finance is unreachable.
 
 ### Technical Indicators (Web Worker)
 
@@ -202,7 +203,7 @@ User selects ticker
   → TickerStore.selectTicker()
   → effect() triggers loadMarketData()
     → CacheStore.get() (IndexedDB, 1h TTL)
-    → MarketDataService.fetchCandles() (Yahoo Finance → mock fallback)
+    → MarketDataService.fetchCandles() (Yahoo Finance via proxy → synthetic fallback)
     → TickerStore.setCandleData()
   → IndicatorsService.computeIndicators() (Web Worker)
     → TickerStore.setIndicators()

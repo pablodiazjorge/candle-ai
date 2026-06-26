@@ -35,7 +35,7 @@ Browser
 |                                                                 |
 |  +--------------------------+  +------------------------------+  |
 |  | IndexedDB                |  | HTTP (fetch)                 |  |
-|  | (Dexie.js)               |  | → Yahoo Finance              |  |
+|  | (Dexie.js)               |  | → Yahoo Finance (proxy)     |  |
 |  | Cache TTL: 1h            |  | → LLM Provider               |  |
 |  +--------------------------+  +------------------------------+  |
 +-----------------------------------------------------------------+
@@ -43,8 +43,9 @@ Browser
                 v                                  v
 +--------------------------+  +------------------------------+
 | Yahoo Finance            |  | LLM Endpoint                 |
-| (market data)            |  | (Ollama, DeepSeek,           |
-| Fallback: mock           |  |  OpenAI, Groq, etc.)         |
+| (market data via          |  | (Ollama, DeepSeek,           |
+|  /api/yahoo proxy)        |  |  OpenAI, Groq, etc.)         |
+| Fallback: synthetic       |  |                              |
 +--------------------------+  +------------------------------+
 ```
 
@@ -68,7 +69,7 @@ All state uses Angular Signals. No RxJS BehaviorSubjects, no zone.js
 dependency. Change detection is zoneless and signal-driven.
 
 **Principle 4: Progressive enhancement.**
-The app works with mock data when Yahoo Finance is unreachable (CORS).
+The app works with synthetic data when Yahoo Finance is unreachable.
 The LLM analysis is optional — indicators and patterns work without it.
 Every feature degrades gracefully.
 
@@ -494,7 +495,7 @@ usage data accumulates.
 
 **Context.**
 The application performs all analysis in the browser. Market data comes from
-Yahoo Finance (or mock); LLM analysis goes to a user-configured endpoint. No
+Yahoo Finance (or synthetic); LLM analysis goes to a user-configured endpoint. No
 data is stored server-side.
 
 **Decision.**
@@ -504,7 +505,7 @@ confluence model — runs client-side.
 **Rationale.**
 This is an extension of Principle 1 (Zero Backend). Client-side analysis means:
 (a) no server costs, (b) no data privacy concerns, (c) instant responsiveness
-(no network round-trip for analysis), (d) works offline with mock data. The
+(no network round-trip for analysis), (d) works offline with synthetic data. The
 confluence model is computationally trivial (simple arithmetic on a handful of
 signals) — no server needed.
 
@@ -569,7 +570,7 @@ User selects ticker
   → TickerStore.selectTicker()
   → effect() triggers loadMarketData()
     → CacheStore.get() (IndexedDB)
-    → MarketDataService.fetchCandles() (Yahoo Finance, fallback mock)
+    → MarketDataService.fetchCandles() (Yahoo Finance via proxy → synthetic fallback)
     → CacheStore.set() (1h TTL)
     → TickerStore.setCandleData()
   → IndicatorsService.computeIndicators() (Web Worker)
@@ -589,7 +590,9 @@ User selects ticker
 Candle AI is a client-only application. The only outbound network requests are:
 
 1. **Yahoo Finance API** — read-only market data. No authentication.
-   CORS-blocked in browsers; falls back to mock data.
+   Proxied through the Angular dev server in development (`/api/yahoo/*` →
+   `query1.finance.yahoo.com`); Vercel rewrites in production.
+   Falls back to per-ticker synthetic data when unreachable.
 
 2. **LLM Endpoint** — user-configured. The API key is stored in `localStorage`
    and sent as a Bearer token. The analysis prompt includes the ticker,
@@ -603,10 +606,11 @@ parties other than the configured LLM endpoint.
 
 ## Known Limitations
 
-**CORS on Yahoo Finance.**
-The Yahoo Finance API does not set CORS headers for browser requests. The
-app falls back to mock SPY 6-month data. A production deployment would
-need a CORS proxy or an alternative data source (Alpha Vantage, Polygon.io).
+**Yahoo Finance proxy.**
+The Yahoo Finance API does not set CORS headers for browser requests.
+In development, the Angular dev server proxies `/api/yahoo/*` requests to
+`query1.finance.yahoo.com`. In production (Vercel), `vercel.json` rewrites
+handle the same routing. No separate backend is required.
 
 **Pattern detection false positives.**
 The pattern detectors are rule-based and generate false positives on noisy
