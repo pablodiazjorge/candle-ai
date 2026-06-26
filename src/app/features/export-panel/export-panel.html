@@ -2,12 +2,13 @@
   <!-- Toggle Header -->
   <button
     class="export-header"
+    [class.closed]="!isOpen()"
     (click)="toggle()"
     [attr.aria-expanded]="isOpen()"
     aria-controls="export-panel-body"
   >
-    <span id="export-panel-title" class="export-title">📜 Pine Script v5</span>
-    <span class="export-chevron" [class.open]="isOpen()" aria-hidden="true">▼</span>
+    <span id="export-panel-title" class="export-title">Pine Script v5</span>
+    <span class="export-chevron" [class.open]="isOpen()" aria-hidden="true"></span>
   </button>
 
   @if (isOpen()) {
@@ -20,13 +21,13 @@
       <!-- Actions -->
       <div class="export-actions">
         <button class="export-btn copy-btn" (click)="copyToClipboard()" [class.copied]="copied()" [attr.aria-label]="copied() ? ('export.copied' | translate) : ('export.copy' | translate)">
-          {{ copied() ? ('export.copied' | translate) : ('export.copy' | translate) }}
+          <i class="ph-bold ph-copy"></i> {{ copied() ? ('export.copied' | translate) : ('export.copy' | translate) }}
         </button>
         <button class="export-btn download-btn" (click)="download()" aria-label="Download Pine Script file">
-          {{ 'export.download' | translate }}
+          <i class="ph-bold ph-download-simple"></i> {{ 'export.download' | translate }}
         </button>
         <a class="export-btn tv-link" [href]="tradingViewUrl" target="_blank" rel="noopener" aria-label="Open in TradingView (new tab)">
-          {{ 'export.openTv' | translate }}
+          <i class="ph-bold ph-arrow-square-out"></i> {{ 'export.openTv' | translate }}
         </a>
       </div>
 

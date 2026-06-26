@@ -5,7 +5,7 @@
     [attr.aria-label]="'llm.settings' | translate"
     [title]="'llm.settings' | translate"
   >
-    <span aria-hidden="true">⚙️</span>
+    <i class="ph-bold ph-gear" aria-hidden="true"></i>
     @if (!store.isConfigured()) {
       <span class="badge" aria-label="Not configured">!</span>
     }

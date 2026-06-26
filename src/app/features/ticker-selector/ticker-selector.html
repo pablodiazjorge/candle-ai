@@ -1,6 +1,6 @@
 <div class="ticker-selector">
   <div class="search-wrapper">
-    <span class="search-icon">🔍</span>
+    <i class="ph-bold ph-magnifying-glass search-icon"></i>
     <input
       type="text"
       [ngModel]="searchQuery()"
@@ -12,7 +12,7 @@
     />
     @if (searchQuery()) {
       <button class="clear-btn" (mousedown)="$event.preventDefault(); searchQuery.set(''); filteredSymbols.set([])">
-        ✕
+        <i class="ph-bold ph-x"></i>
       </button>
     }
   </div>
@@ -59,7 +59,7 @@
             [attr.aria-label]="'Select ' + ticker"
           >
             {{ ticker }}
-            <span class="remove-btn" (mousedown)="$event.stopPropagation(); store.removeFromWatchlist(ticker)" role="button" [attr.aria-label]="'Remove ' + ticker + ' from watchlist'" tabindex="0">✕</span>
+            <span class="remove-btn" (mousedown)="$event.stopPropagation(); store.removeFromWatchlist(ticker)" role="button" [attr.aria-label]="'Remove ' + ticker + ' from watchlist'" tabindex="0"><i class="ph-bold ph-x"></i></span>
           </button>
         }
       </div>
@@ -81,7 +81,7 @@
       >
         <div class="modal-header">
           <h4 id="watchlist-modal-title" class="modal-title">{{ 'ticker.manageWatchlist' | translate }}</h4>
-          <button class="modal-close" (click)="closeWatchlistModal()" aria-label="Close dialog">✕</button>
+          <button class="modal-close" (click)="closeWatchlistModal()" aria-label="Close dialog"><i class="ph-bold ph-x"></i></button>
         </div>
 
         <!-- Filter -->

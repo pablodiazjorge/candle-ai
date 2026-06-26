@@ -59,6 +59,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
   private markersPlugin: ISeriesMarkersPluginApi<Time> | null = null;
   private volumeProfileLines: any[] = [];
   private volumeMarkers = signal<SeriesMarker<Time>[]>([]);
+  private themeObserver: MutationObserver | null = null;
 
   private readonly resizeObserver = new ResizeObserver(() => {
     if (this.chart && this.chartContainer) {
@@ -99,6 +100,11 @@ export class CandleChart implements AfterViewInit, OnDestroy {
         this.markersPlugin.setMarkers(markers);
       }
     });
+
+  }
+
+  private isDark(): boolean {
+    return document.documentElement.getAttribute('data-theme') !== 'light';
   }
 
   ngAfterViewInit(): void {
@@ -106,35 +112,47 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     if (this.candleData().length > 0) {
       this.updateCandleSeries(this.candleData());
     }
+
+    // Observe theme attribute changes on <html> for live switching
+    const observer = new MutationObserver(() => {
+      this.applyTheme(this.isDark());
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    this.themeObserver = observer;
   }
 
   ngOnDestroy(): void {
     this.resizeObserver.disconnect();
+    this.themeObserver?.disconnect();
     this.chart?.remove();
   }
 
   private initChart(): void {
     const container = this.chartContainer.nativeElement;
+    const isDark = this.isDark();
 
     this.chart = createChart(container, {
       layout: {
-        background: { type: ColorType.Solid, color: '#0f1117' },
-        textColor: '#94a3b8',
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: isDark ? '#94a3b8' : '#334155',
       },
       grid: {
-        vertLines: { color: '#1e2130' },
-        horzLines: { color: '#1e2130' },
+        vertLines: { color: isDark ? '#1e2130' : '#e2e8f0' },
+        horzLines: { color: isDark ? '#1e2130' : '#e2e8f0' },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: '#787878', style: 2, width: 1, labelBackgroundColor: '#787878' },
-        horzLine: { color: '#787878', style: 2, width: 1, labelBackgroundColor: '#787878' },
+        vertLine: { color: isDark ? '#787878' : '#94a3b8', style: 2, width: 1, labelBackgroundColor: isDark ? '#787878' : '#94a3b8' },
+        horzLine: { color: isDark ? '#787878' : '#94a3b8', style: 2, width: 1, labelBackgroundColor: isDark ? '#787878' : '#94a3b8' },
       },
       rightPriceScale: {
-        borderColor: '#2a2e44',
+        borderColor: isDark ? '#2a2e44' : '#cbd5e1',
       },
       timeScale: {
-        borderColor: '#2a2e44',
+        borderColor: isDark ? '#2a2e44' : '#cbd5e1',
         timeVisible: true,
         secondsVisible: false,
       },
@@ -156,6 +174,23 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     this.markersPlugin = createSeriesMarkers(this.candleSeries, []);
 
     this.resizeObserver.observe(container);
+  }
+
+  private applyTheme(isDark: boolean): void {
+    if (!this.chart) return;
+    this.chart.applyOptions({
+      layout: { textColor: isDark ? '#94a3b8' : '#334155' },
+      grid: {
+        vertLines: { color: isDark ? '#1e2130' : '#e2e8f0' },
+        horzLines: { color: isDark ? '#1e2130' : '#e2e8f0' },
+      },
+      crosshair: {
+        vertLine: { color: isDark ? '#787878' : '#94a3b8', labelBackgroundColor: isDark ? '#787878' : '#94a3b8' },
+        horzLine: { color: isDark ? '#787878' : '#94a3b8', labelBackgroundColor: isDark ? '#787878' : '#94a3b8' },
+      },
+      rightPriceScale: { borderColor: isDark ? '#2a2e44' : '#cbd5e1' },
+      timeScale: { borderColor: isDark ? '#2a2e44' : '#cbd5e1' },
+    });
   }
 
   private updateCandleSeries(data: Candle[]): void {
@@ -250,23 +285,24 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     // Collect volume analysis markers (merged with pattern markers)
     const volMarkers: SeriesMarker<Time>[] = [];
     if (ind.volumeClimax) {
-      for (const s of ind.volumeClimax.spikes) {
-        volMarkers.push({ time: s.time as Time, position: 'aboveBar', color: '#f59e0b', shape: 'arrowDown', text: 'VC' });
+      for (const s of ind.volumeClimax.spikes.slice(-10)) {
+        volMarkers.push({ time: s.time as Time, position: 'aboveBar', color: '#f59e0b88', shape: 'arrowDown', text: '', size: 1 });
       }
     }
     if (ind.volumeDryUp) {
-      for (const d of ind.volumeDryUp.dips) {
-        volMarkers.push({ time: d.time as Time, position: 'belowBar', color: '#06b6d4', shape: 'circle', text: '↓' });
+      for (const d of ind.volumeDryUp.dips.slice(-10)) {
+        volMarkers.push({ time: d.time as Time, position: 'belowBar', color: '#06b6d488', shape: 'circle', text: '', size: 1 });
       }
     }
     if (ind.volumeDivergence) {
-      for (const d of ind.volumeDivergence.divergences) {
+      for (const d of ind.volumeDivergence.divergences.slice(-15)) {
         volMarkers.push({
           time: d.time as Time,
           position: d.type === 'bullish' ? 'belowBar' : 'aboveBar',
-          color: d.type === 'bullish' ? '#22c55e' : '#ef4444',
-          shape: 'circle',
-          text: d.type === 'bullish' ? 'B' : 'B',
+          color: (d.type === 'bullish' ? '#22c55e88' : '#ef444488'),
+          shape: 'square',
+          text: '',
+          size: 1,
         });
       }
     }
@@ -513,21 +549,43 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     if (patterns.length === 0) return [];
 
     const sentimentConfig: Record<string, { color: string; shape: 'arrowUp' | 'arrowDown' | 'circle' }> = {
-      bullish: { color: '#22c55e', shape: 'arrowUp' },
-      bearish: { color: '#ef4444', shape: 'arrowDown' },
-      neutral: { color: '#fbbf24', shape: 'circle' },
+      bullish: { color: '#22c55eaa', shape: 'arrowUp' },
+      bearish: { color: '#ef4444aa', shape: 'arrowDown' },
+      neutral: { color: '#fbbf2488', shape: 'circle' },
     };
 
-    return patterns.map((p) => {
+    const ABBREV: Record<string, string> = {
+      doji: 'D', hammer: 'H', shooting_star: 'SS',
+      bullish_engulfing: '▲', bearish_engulfing: '▼',
+      morning_star: '☆', evening_star: '★',
+      bullish_harami: 'H+', bearish_harami: 'H−',
+      three_white_soldiers: '3▲', three_black_crows: '3▼',
+      double_top: '2T', double_bottom: '2B',
+      head_and_shoulders: 'H&S', inverse_head_and_shoulders: 'iHS',
+    };
+
+    // Deduplicate: one marker per 3 candles, keep highest confidence
+    const deduped: DetectedPattern[] = [];
+    const seen = new Set<number>();
+    for (const p of [...patterns].sort((a, b) => b.confidence - a.confidence)) {
+      const bucket = Math.floor(p.time / (86400 * 3)); // 3-day bucket
+      if (!seen.has(bucket)) {
+        seen.add(bucket);
+        deduped.push(p);
+      }
+    }
+    // Limit to last 25 markers to avoid clutter
+    const limited = deduped.sort((a, b) => a.time - b.time).slice(-25);
+
+    return limited.map((p) => {
       const cfg = sentimentConfig[p.sentiment] ?? sentimentConfig['neutral'];
       return {
         time: p.time as Time,
         position: (p.sentiment === 'bullish' ? 'belowBar' : 'aboveBar') as 'aboveBar' | 'belowBar',
         color: cfg.color,
         shape: cfg.shape,
-        text: p.type.replace(/_/g, ' '),
-        size: 3,
-        textColor: '#ffffff',
+        text: ABBREV[p.type] ?? '•',
+        size: 1,
       };
     });
   }

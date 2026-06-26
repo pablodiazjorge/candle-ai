@@ -2,9 +2,12 @@
   <div class="panel-header">
     <h3 id="patterns-panel-title" class="panel-title">{{ 'pattern.title' | translate }}</h3>
     <div class="panel-header-right">
+      <button class="btn-legend" (click)="openLegend()" [attr.aria-label]="'pattern.legend' | translate" title="Pattern legend">
+        <i class="ph-bold ph-info" aria-hidden="true"></i>
+      </button>
       @if (patterns().length > 0) {
         <button class="btn-manage-markers" (click)="openModal()" [attr.aria-label]="'pattern.manageMarkers' | translate">
-          <span class="markers-icon" aria-hidden="true">📍</span>
+          <i class="ph-bold ph-map-pin markers-icon" aria-hidden="true"></i>
           <span class="markers-count" [class.active]="selectedCount() > 0" aria-label="{{ selectedCount() }} patterns visible on chart">{{ selectedCount() }}</span>
         </button>
       }
@@ -37,7 +40,7 @@
           <!-- Text-based sentiment badge -->
           <span class="pattern-sentiment-badge">{{ 'pattern.' + p.sentiment | translate }}</span>
           <div class="pattern-info">
-            <span class="pattern-name">{{ p.labelKey | translate }}</span>
+            <span class="pattern-name" [attr.title]="p.labelKey | translate">{{ p.labelKey | translate }}</span>
           </div>
           <span class="pattern-confidence">{{ formatConfidence(p.confidence) }}</span>
           @if (p.grade) {
@@ -61,7 +64,7 @@
       >
         <div class="modal-header">
           <h4 id="modal-pattern-title" class="modal-title">{{ 'pattern.selectMarkers' | translate }}</h4>
-          <button class="modal-close" (click)="closeModal()" aria-label="Close dialog">✕</button>
+          <button class="modal-close" (click)="closeModal()" aria-label="Close dialog"><i class="ph-bold ph-x"></i></button>
         </div>
 
         <div class="modal-actions">
@@ -86,6 +89,40 @@
 
         <div class="modal-footer">
           <button class="btn-done" (click)="closeModal()">{{ 'pattern.done' | translate }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Pattern Legend Modal -->
+  @if (legendOpen()) {
+    <div class="modal-backdrop" (click)="closeLegend()">
+      <div
+        class="modal-content legend-modal"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="legend-title"
+      >
+        <div class="modal-header legend-header">
+          <div>
+            <h4 id="legend-title" class="modal-title"><i class="ph-bold ph-book-open-text"></i> Pattern Legend</h4>
+            <p class="legend-intro">Chart markers use these symbols. Hover the sidebar list for full names and grades.</p>
+          </div>
+          <button class="modal-close" (click)="closeLegend()" aria-label="Close legend"><i class="ph-bold ph-x"></i></button>
+        </div>
+        <div class="legend-body">
+          <div class="legend-grid">
+            @for (meta of allPatterns; track meta.type) {
+              <div class="legend-item">
+                <span class="legend-symbol" [class]="meta.sentiment">{{ meta.symbol }}</span>
+                <div class="legend-info">
+                  <span class="legend-name">{{ meta.labelKey | translate }}</span>
+                  <span class="legend-desc">{{ meta.descKey | translate }}</span>
+                </div>
+              </div>
+            }
+          </div>
         </div>
       </div>
     </div>

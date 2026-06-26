@@ -5,28 +5,14 @@
   <!-- Top Bar -->
   <header class="top-bar" role="banner">
     <button class="menu-btn" (click)="toggleSidebar()" [attr.aria-label]="'app.toggleSidebar' | translate" [attr.aria-expanded]="isSidebarOpen">
-      <span aria-hidden="true">☰</span>
+      <i class="ph-bold ph-list" aria-hidden="true"></i>
     </button>
     <h1 class="app-title">Candle AI</h1>
     <span class="app-subtitle">Trading Analysis</span>
 
     <div class="top-bar-spacer"></div>
 
-    <!-- LLM Settings -->
-    <app-llm-settings />
-
-    <!-- Theme toggle -->
-    <button class="theme-toggle-btn" (click)="toggleTheme()" [attr.aria-label]="themeLabel">
-      <span aria-hidden="true">{{ isDarkTheme ? '☀️' : '🌙' }}</span>
-    </button>
-
-    <!-- Language switcher -->
-    <div class="lang-switcher" role="group" [attr.aria-label]="'app.selectLanguage' | translate">
-      <button class="lang-btn" [attr.aria-pressed]="currentLang === 'en'" (click)="switchLanguage('en')" lang="en">EN</button>
-      <button class="lang-btn" [attr.aria-pressed]="currentLang === 'es'" (click)="switchLanguage('es')" lang="es">ES</button>
-    </div>
-
-    <!-- Timeframe selector -->
+    <!-- Timeframe + Range selectors -->
     @if (store.hasTicker()) {
       <div class="timeframe-bar" role="group" aria-label="Timeframe selection">
         @for (tf of timeframes; track tf) {
@@ -39,6 +25,20 @@
         }
       </div>
     }
+
+    <!-- Language switcher -->
+    <div class="lang-switcher" role="group" [attr.aria-label]="'app.selectLanguage' | translate">
+      <button class="lang-btn" [attr.aria-pressed]="currentLang === 'en'" (click)="switchLanguage('en')" lang="en">EN</button>
+      <button class="lang-btn" [attr.aria-pressed]="currentLang === 'es'" (click)="switchLanguage('es')" lang="es">ES</button>
+    </div>
+
+    <!-- Theme toggle -->
+    <button class="theme-toggle-btn" (click)="toggleTheme()" [attr.aria-label]="themeLabel">
+      <i class="ph-bold" [class.ph-sun]="isDarkTheme()" [class.ph-moon]="!isDarkTheme()" aria-hidden="true"></i>
+    </button>
+
+    <!-- LLM Settings -->
+    <app-llm-settings />
   </header>
 
   <!-- Main Content -->
@@ -99,7 +99,7 @@
       @if (!store.hasTicker()) {
         <div class="welcome-screen" role="region" aria-label="Welcome to Candle AI">
           <div class="welcome-card">
-            <div class="welcome-icon" aria-hidden="true">📈</div>
+            <i class="ph-bold ph-chart-line-up welcome-icon" aria-hidden="true"></i>
             <h2 class="welcome-title">{{ 'welcome.title' | translate }}</h2>
             <p class="welcome-desc">{{ 'welcome.desc' | translate }}</p>
             <ol class="welcome-steps">

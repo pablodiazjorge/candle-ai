@@ -10,23 +10,29 @@ const SENTIMENT_ICONS: Record<string, string> = {
   neutral: '—',
 };
 
-/** All known pattern types with their sentiment for the selection modal */
-const ALL_PATTERN_META: { type: PatternType; sentiment: string; labelKey: string }[] = [
-  { type: 'doji', sentiment: 'neutral', labelKey: 'pattern.doji' },
-  { type: 'hammer', sentiment: 'bullish', labelKey: 'pattern.hammer' },
-  { type: 'shooting_star', sentiment: 'bearish', labelKey: 'pattern.shootingStar' },
-  { type: 'bullish_engulfing', sentiment: 'bullish', labelKey: 'pattern.bullishEngulfing' },
-  { type: 'bearish_engulfing', sentiment: 'bearish', labelKey: 'pattern.bearishEngulfing' },
-  { type: 'morning_star', sentiment: 'bullish', labelKey: 'pattern.morningStar' },
-  { type: 'evening_star', sentiment: 'bearish', labelKey: 'pattern.eveningStar' },
-  { type: 'bullish_harami', sentiment: 'bullish', labelKey: 'pattern.bullishHarami' },
-  { type: 'bearish_harami', sentiment: 'bearish', labelKey: 'pattern.bearishHarami' },
-  { type: 'three_white_soldiers', sentiment: 'bullish', labelKey: 'pattern.threeWhiteSoldiers' },
-  { type: 'three_black_crows', sentiment: 'bearish', labelKey: 'pattern.threeBlackCrows' },
-  { type: 'double_top', sentiment: 'bearish', labelKey: 'pattern.doubleTop' },
-  { type: 'double_bottom', sentiment: 'bullish', labelKey: 'pattern.doubleBottom' },
-  { type: 'head_and_shoulders', sentiment: 'bearish', labelKey: 'pattern.headAndShoulders' },
-  { type: 'inverse_head_and_shoulders', sentiment: 'bullish', labelKey: 'pattern.inverseHeadAndShoulders' },
+/** All known pattern types with metadata for the selection modal and legend */
+const ALL_PATTERN_META: {
+  type: PatternType;
+  sentiment: string;
+  labelKey: string;
+  symbol: string;
+  descKey: string;
+}[] = [
+  { type: 'doji', sentiment: 'neutral', labelKey: 'pattern.doji', symbol: 'D', descKey: 'pattern.dojiDesc' },
+  { type: 'hammer', sentiment: 'bullish', labelKey: 'pattern.hammer', symbol: 'H', descKey: 'pattern.hammerDesc' },
+  { type: 'shooting_star', sentiment: 'bearish', labelKey: 'pattern.shootingStar', symbol: 'SS', descKey: 'pattern.shootingStarDesc' },
+  { type: 'bullish_engulfing', sentiment: 'bullish', labelKey: 'pattern.bullishEngulfing', symbol: '▲', descKey: 'pattern.bullishEngulfingDesc' },
+  { type: 'bearish_engulfing', sentiment: 'bearish', labelKey: 'pattern.bearishEngulfing', symbol: '▼', descKey: 'pattern.bearishEngulfingDesc' },
+  { type: 'morning_star', sentiment: 'bullish', labelKey: 'pattern.morningStar', symbol: '☆', descKey: 'pattern.morningStarDesc' },
+  { type: 'evening_star', sentiment: 'bearish', labelKey: 'pattern.eveningStar', symbol: '★', descKey: 'pattern.eveningStarDesc' },
+  { type: 'bullish_harami', sentiment: 'bullish', labelKey: 'pattern.bullishHarami', symbol: 'H+', descKey: 'pattern.bullishHaramiDesc' },
+  { type: 'bearish_harami', sentiment: 'bearish', labelKey: 'pattern.bearishHarami', symbol: 'H−', descKey: 'pattern.bearishHaramiDesc' },
+  { type: 'three_white_soldiers', sentiment: 'bullish', labelKey: 'pattern.threeWhiteSoldiers', symbol: '3▲', descKey: 'pattern.threeWhiteSoldiersDesc' },
+  { type: 'three_black_crows', sentiment: 'bearish', labelKey: 'pattern.threeBlackCrows', symbol: '3▼', descKey: 'pattern.threeBlackCrowsDesc' },
+  { type: 'double_top', sentiment: 'bearish', labelKey: 'pattern.doubleTop', symbol: '2T', descKey: 'pattern.doubleTopDesc' },
+  { type: 'double_bottom', sentiment: 'bullish', labelKey: 'pattern.doubleBottom', symbol: '2B', descKey: 'pattern.doubleBottomDesc' },
+  { type: 'head_and_shoulders', sentiment: 'bearish', labelKey: 'pattern.headAndShoulders', symbol: 'H&S', descKey: 'pattern.headAndShouldersDesc' },
+  { type: 'inverse_head_and_shoulders', sentiment: 'bullish', labelKey: 'pattern.inverseHeadAndShoulders', symbol: 'iHS', descKey: 'pattern.inverseHeadAndShouldersDesc' },
 ];
 
 @Component({
@@ -43,6 +49,20 @@ export class PatternOverlay {
 
   /** Whether the pattern selection modal is open */
   readonly modalOpen = signal(false);
+
+  /** Whether the pattern legend/info modal is open */
+  readonly legendOpen = signal(false);
+
+  /** All known patterns for the legend */
+  readonly allPatterns = ALL_PATTERN_META;
+
+  openLegend(): void {
+    this.legendOpen.set(true);
+  }
+
+  closeLegend(): void {
+    this.legendOpen.set(false);
+  }
 
   /** Unique pattern types present in the current data */
   readonly availableTypes = computed(() => {

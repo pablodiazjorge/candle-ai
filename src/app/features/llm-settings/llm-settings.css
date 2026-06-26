@@ -7,24 +7,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none;
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  border: none;
   color: var(--color-text-secondary);
-  font-size: 1rem; /* 16px */
+  font-size: 1rem;
   width: 40px;
-  height: 40px;
+  height: 36px;
   min-width: 40px;
-  min-height: 40px;
+  min-height: 36px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
   position: relative;
+  line-height: 1;
 }
 
 .settings-btn:hover {
-  background: var(--color-surface-hover);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
 }
 
 .settings-btn:active {

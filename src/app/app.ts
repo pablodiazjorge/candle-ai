@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, effect } from '@angular/core';
+import { Component, inject, OnInit, effect, signal } from '@angular/core';
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { TranslateService, TranslatePipe } from '@ngx-translate/core';
 import { TickerSelector } from './features/ticker-selector/ticker-selector';
@@ -37,7 +37,7 @@ export class App implements OnInit {
   readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'] as const;
   readonly ranges = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max'] as const;
   isSidebarOpen = true;
-  isDarkTheme = true;
+  readonly isDarkTheme = signal(true);
 
   constructor() {
     // React to ticker, timeframe, or range changes: reload market data
@@ -54,7 +54,7 @@ export class App implements OnInit {
 
   ngOnInit(): void {
     // Theme initialization
-    this.isDarkTheme = localStorage.getItem('candle-ai-theme') !== 'light';
+    this.isDarkTheme.set(localStorage.getItem('candle-ai-theme') !== 'light');
     this.applyTheme();
 
     // i18n setup
@@ -171,13 +171,13 @@ export class App implements OnInit {
   }
 
   toggleTheme(): void {
-    this.isDarkTheme = !this.isDarkTheme;
-    localStorage.setItem('candle-ai-theme', this.isDarkTheme ? 'dark' : 'light');
+    this.isDarkTheme.update((v) => !v);
+    localStorage.setItem('candle-ai-theme', this.isDarkTheme() ? 'dark' : 'light');
     this.applyTheme();
   }
 
   get themeLabel(): string {
-    return this.isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode';
+    return this.isDarkTheme() ? 'Switch to light mode' : 'Switch to dark mode';
   }
 
   get isLoading(): boolean {
@@ -189,7 +189,7 @@ export class App implements OnInit {
   }
 
   private applyTheme(): void {
-    if (this.isDarkTheme) {
+    if (this.isDarkTheme()) {
       document.documentElement.removeAttribute('data-theme');
     } else {
       document.documentElement.setAttribute('data-theme', 'light');

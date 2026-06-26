@@ -2,8 +2,6 @@
   margin-top: 0.75rem;
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
-  overflow: hidden;
-  background: var(--color-bg-secondary);
   flex-shrink: 0;
 }
 
@@ -15,12 +13,23 @@
   padding: 10px 16px;
   background: var(--color-bg-secondary);
   border: none;
+  border-radius: 8px 8px 0 0;
   color: var(--color-text-primary);
-  font-size: 0.8125rem; /* 13px */
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease;
   min-height: 40px;
+  box-sizing: border-box;
+  font-family: inherit;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+
+.export-header.closed {
+  border-radius: 8px;
 }
 
 .export-header:hover {
@@ -28,13 +37,28 @@
 }
 
 .export-header:active {
-  transform: scale(0.99);
+  background: var(--color-btn-active-bg);
 }
 
 .export-chevron {
-  font-size: 0.6875rem; /* 11px */
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   transition: transform 0.2s ease;
-  color: var(--color-text-muted);
+  opacity: 0.55;
+}
+
+.export-chevron::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: 4px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  box-sizing: border-box;
 }
 
 .export-chevron.open {
@@ -43,6 +67,8 @@
 
 .export-body {
   border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
+  border-radius: 0 0 8px 8px;
 }
 
 /* ─── Actions ────────────────────────────────────────────────── */
