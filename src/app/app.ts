@@ -33,13 +33,17 @@ export class App implements OnInit {
   private readonly cacheStore = inject(CacheStore);
 
   readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'] as const;
+  readonly ranges = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max'] as const;
   isSidebarOpen = true;
   isDarkTheme = true;
 
   constructor() {
-    // React to ticker changes: load market data (must be in constructor for effect())
+    // React to ticker, timeframe, or range changes: reload market data
     effect(() => {
       const ticker = this.store.selectedTicker();
+      // Track these signals so effect re-runs when they change
+      this.store.timeframe();
+      this.store.range();
       if (ticker) {
         this.loadMarketData(ticker);
       }
@@ -95,28 +99,41 @@ export class App implements OnInit {
 
   /** Run pattern detection on candle data */
   private detectPatterns(candles: Candle[]): void {
-    const patterns = this.patternsService.detectAll(candles);
-    this.store.setPatterns(patterns);
+    const candlestickPatterns = this.patternsService.detectAll(candles);
+    const chartPatterns = this.patternsService.detectChartPatterns(candles);
+    this.store.setPatterns([...candlestickPatterns, ...chartPatterns]);
   }
 
   /** Compute indicators if any are active */
+  private computeCallId = 0;
+
   private async computeActiveIndicators(candles: Candle[]): Promise<void> {
     const settings = this.store.activeIndicators();
     const hasAny = Object.values(settings).some(Boolean);
+    const callId = ++this.computeCallId;
 
     if (!hasAny || candles.length === 0) {
       this.store.setIndicators({
         rsi: null, macd: null, bb: null,
         sma20: null, sma50: null, sma200: null,
         ema9: null, ema21: null, volumeProfile: null,
+        adx: null, regime: null,
+        volumeClimax: null, volumeDryUp: null, volumeDivergence: null,
       });
+      this.store.setRegime(null as any);
       return;
     }
 
     try {
       const results = await this.indicatorsService.computeIndicators(candles, settings);
+      // Discard stale results from superseded calls
+      if (callId !== this.computeCallId) return;
       this.store.setIndicators(results);
+      if (results.regime) {
+        this.store.setRegime(results.regime);
+      }
     } catch (err) {
+      if (callId !== this.computeCallId) return;
       console.error('Indicator computation failed:', err);
     }
   }

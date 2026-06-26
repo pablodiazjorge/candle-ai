@@ -4,23 +4,26 @@
  */
 
 import { Candle } from '../models/candle.model';
-import { IndicatorResults, RsiResult, MacdResult, BollingerBandsResult, SmaResult, EmaResult, VolumeProfileResult } from '../models/indicator.model';
+import {
+  IndicatorResults,
+  IndicatorSettings,
+  AdxResult,
+  MarketRegime,
+  RegimeResult,
+  VolumeClimaxResult,
+  VolumeDryUpResult,
+  VolumeDivergenceResult,
+  RsiResult,
+  MacdResult,
+  BollingerBandsResult,
+  SmaResult,
+  EmaResult,
+  VolumeProfileResult,
+} from '../models/indicator.model';
 
 export interface IndicatorWorkerInput {
   candles: Candle[];
   settings: IndicatorSettings;
-}
-
-export interface IndicatorSettings {
-  rsi: boolean;
-  macd: boolean;
-  bb: boolean;
-  sma20: boolean;
-  sma50: boolean;
-  sma200: boolean;
-  ema9: boolean;
-  ema21: boolean;
-  volumeProfile: boolean;
 }
 
 // ─── RSI ────────────────────────────────────────────────────────────
@@ -203,6 +206,247 @@ function calcVolumeProfile(candles: Candle[]): VolumeProfileResult {
   return { levels, poc, valueAreaHigh: vaHigh, valueAreaLow: vaLow };
 }
 
+// ─── ADX ────────────────────────────────────────────────────────────
+
+function calcAdx(candles: Candle[], period: number): AdxResult {
+  const values: Record<number, number> = {};
+  if (candles.length < period * 2 + 1) return { values, period };
+
+  const trValues: number[] = [];
+  const plusDm: number[] = [];
+  const minusDm: number[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high;
+    const low = candles[i].low;
+    const prevHigh = candles[i - 1].high;
+    const prevLow = candles[i - 1].low;
+    const prevClose = candles[i - 1].close;
+
+    // True Range
+    const tr = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose),
+    );
+    trValues.push(tr);
+
+    // Directional Movement
+    const upMove = high - prevHigh;
+    const downMove = prevLow - low;
+    if (upMove > downMove && upMove > 0) {
+      plusDm.push(upMove);
+    } else {
+      plusDm.push(0);
+    }
+    if (downMove > upMove && downMove > 0) {
+      minusDm.push(downMove);
+    } else {
+      minusDm.push(0);
+    }
+  }
+
+  // Wilder's smoothing for AT
+  let atr = trValues.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedPlusDm = plusDm.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedMinusDm = minusDm.slice(0, period).reduce((a, b) => a + b, 0);
+
+  const diPlus: number[] = [];
+  const diMinus: number[] = [];
+  const adxValues: number[] = [];
+
+  for (let i = period; i < trValues.length; i++) {
+    atr = atr - atr / period + trValues[i];
+    smoothedPlusDm = smoothedPlusDm - smoothedPlusDm / period + plusDm[i];
+    smoothedMinusDm = smoothedMinusDm - smoothedMinusDm / period + minusDm[i];
+
+    const dip = atr === 0 ? 0 : (smoothedPlusDm / atr) * 100;
+    const dim = atr === 0 ? 0 : (smoothedMinusDm / atr) * 100;
+    diPlus.push(dip);
+    diMinus.push(dim);
+
+    const dx = dip + dim === 0 ? 0 : (Math.abs(dip - dim) / (dip + dim)) * 100;
+    adxValues.push(dx);
+  }
+
+  // Smooth ADX with Wilder's method
+  if (adxValues.length >= period) {
+    let adx = adxValues.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    values[candles[period * 2].time] = round2(adx);
+
+    for (let i = period; i < adxValues.length; i++) {
+      adx = (adx * (period - 1) + adxValues[i]) / period;
+      const candleIdx = period * 2 + (i - period) + 1;
+      if (candleIdx < candles.length) {
+        values[candles[candleIdx].time] = round2(adx);
+      }
+    }
+  }
+
+  return { values, period };
+}
+
+// ─── Market Regime Detection ────────────────────────────────────────
+
+function detectRegime(
+  candles: Candle[],
+  sma20: Record<number, number> | null,
+  sma50: Record<number, number> | null,
+  sma200: Record<number, number> | null,
+  adxValues: Record<number, number> | null,
+): RegimeResult | null {
+  if (candles.length < 50) return null;
+
+  const last = candles[candles.length - 1].time;
+
+  // Method 1: SMA alignment
+  const s20 = sma20 ? Object.values(sma20).pop() : null;
+  const s50 = sma50 ? Object.values(sma50).pop() : null;
+  const s200 = sma200 ? Object.values(sma200).pop() : null;
+
+  let smaAlignment = 'unknown';
+  if (s20 && s50 && s200) {
+    if (s20 > s50 && s50 > s200) smaAlignment = 'uptrend';
+    else if (s20 < s50 && s50 < s200) smaAlignment = 'downtrend';
+    else smaAlignment = 'ranging';
+  }
+
+  // Method 2: ADX
+  const adx = adxValues ? Object.values(adxValues).pop() ?? 0 : 0;
+  let adxSignal = 'ranging';
+  if (adx > 25) adxSignal = 'trending';
+  else if (adx < 20) adxSignal = 'ranging';
+
+  // Method 3: Market structure (HH/HL or LH/LL over last 20 candles)
+  let structure = 'ranging';
+  if (candles.length >= 20) {
+    const recent = candles.slice(-20);
+    const highs = recent.map((c) => c.high);
+    const lows = recent.map((c) => c.low);
+
+    // Find swing points
+    const swingHighs = findSwings(highs, 'high');
+    const swingLows = findSwings(lows, 'low');
+
+    if (swingHighs.length >= 2 && swingLows.length >= 2) {
+      const hh = swingHighs[swingHighs.length - 1] > swingHighs[swingHighs.length - 2];
+      const hl = swingLows[swingLows.length - 1] > swingLows[swingLows.length - 2];
+      const lh = swingHighs[swingHighs.length - 1] < swingHighs[swingHighs.length - 2];
+      const ll = swingLows[swingLows.length - 1] < swingLows[swingLows.length - 2];
+
+      if (hh && hl) structure = 'uptrend';
+      else if (lh && ll) structure = 'downtrend';
+      else structure = 'transitional';
+    }
+  }
+
+  // Consensus: at least 2 of 3 must agree
+  const signals = [smaAlignment, adxSignal, structure];
+  const upVotes = signals.filter((s) => s === 'uptrend').length;
+  const downVotes = signals.filter((s) => s === 'downtrend').length;
+  const rangeVotes = signals.filter((s) => s === 'ranging' || s === 'transitional' || s === 'unknown').length;
+
+  let regime: MarketRegime = 'transitional';
+  let confidence = 0.5;
+
+  if (upVotes >= 2) {
+    regime = upVotes === 3 ? 'strong_uptrend' : 'weak_uptrend';
+    confidence = upVotes === 3 ? 0.8 : 0.6;
+  } else if (downVotes >= 2) {
+    regime = downVotes === 3 ? 'strong_downtrend' : 'weak_downtrend';
+    confidence = downVotes === 3 ? 0.8 : 0.6;
+  } else if (rangeVotes >= 2) {
+    regime = 'ranging';
+    confidence = rangeVotes === 3 ? 0.7 : 0.55;
+  }
+
+  return {
+    regime,
+    confidence,
+    methods: {
+      smaAlignment,
+      adxValue: round2(adx),
+      structure,
+    },
+  };
+}
+
+function findSwings(values: number[], type: 'high' | 'low'): number[] {
+  const swings: number[] = [];
+  for (let i = 2; i < values.length - 2; i++) {
+    if (type === 'high') {
+      if (values[i] > values[i - 1] && values[i] > values[i - 2] &&
+          values[i] > values[i + 1] && values[i] > values[i + 2]) {
+        swings.push(values[i]);
+      }
+    } else {
+      if (values[i] < values[i - 1] && values[i] < values[i - 2] &&
+          values[i] < values[i + 1] && values[i] < values[i + 2]) {
+        swings.push(values[i]);
+      }
+    }
+  }
+  return swings;
+}
+
+// ─── Volume Analysis ────────────────────────────────────────────────
+
+function detectVolumeClimaxes(candles: Candle[]): VolumeClimaxResult {
+  if (candles.length < 21) return { spikes: [] };
+
+  const spikes: { time: number; ratio: number }[] = [];
+  for (let i = 20; i < candles.length; i++) {
+    const avg20 = candles.slice(i - 20, i).reduce((sum, c) => sum + c.volume, 0) / 20;
+    if (avg20 > 0) {
+      const ratio = candles[i].volume / avg20;
+      if (ratio >= 2.5) {
+        spikes.push({ time: candles[i].time, ratio: round2(ratio) });
+      }
+    }
+  }
+  return { spikes };
+}
+
+function detectVolumeDryUps(candles: Candle[]): VolumeDryUpResult {
+  if (candles.length < 21) return { dips: [] };
+
+  const dips: { time: number; ratio: number }[] = [];
+  for (let i = 20; i < candles.length; i++) {
+    const avg20 = candles.slice(i - 20, i).reduce((sum, c) => sum + c.volume, 0) / 20;
+    if (avg20 > 0) {
+      const ratio = candles[i].volume / avg20;
+      if (ratio <= 0.5) {
+        dips.push({ time: candles[i].time, ratio: round2(ratio) });
+      }
+    }
+  }
+  return { dips };
+}
+
+function detectVolumeDivergence(candles: Candle[]): VolumeDivergenceResult {
+  if (candles.length < 10) return { divergences: [] };
+
+  const divergences: { time: number; type: 'bullish' | 'bearish' }[] = [];
+  for (let i = 10; i < candles.length; i++) {
+    const currentHigh = candles[i].high;
+    const currentLow = candles[i].low;
+    const currentVol = candles[i].volume;
+    const prevHigh = candles[i - 5].high;
+    const prevLow = candles[i - 5].low;
+    const prevVol = candles[i - 5].volume;
+
+    // Bullish divergence: lower low but lower volume (selling pressure weakening)
+    if (currentLow < prevLow && currentVol < prevVol && prevVol > 0) {
+      divergences.push({ time: candles[i].time, type: 'bullish' });
+    }
+    // Bearish divergence: higher high but lower volume (buying pressure weakening)
+    if (currentHigh > prevHigh && currentVol < prevVol && prevVol > 0) {
+      divergences.push({ time: candles[i].time, type: 'bearish' });
+    }
+  }
+  return { divergences };
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function round2(n: number): number {
@@ -224,6 +468,11 @@ self.onmessage = (event: MessageEvent<IndicatorWorkerInput>) => {
     ema9: null,
     ema21: null,
     volumeProfile: null,
+    adx: null,
+    regime: null,
+    volumeClimax: null,
+    volumeDryUp: null,
+    volumeDivergence: null,
   };
 
   if (!candles.length) {
@@ -240,6 +489,21 @@ self.onmessage = (event: MessageEvent<IndicatorWorkerInput>) => {
   if (settings.ema9) result.ema9 = calcEma(candles, 9);
   if (settings.ema21) result.ema21 = calcEma(candles, 21);
   if (settings.volumeProfile) result.volumeProfile = calcVolumeProfile(candles);
+  if (settings.adx) result.adx = calcAdx(candles, 14);
+  if (settings.volumeClimax) result.volumeClimax = detectVolumeClimaxes(candles);
+  if (settings.volumeDryUp) result.volumeDryUp = detectVolumeDryUps(candles);
+  if (settings.volumeDivergence) result.volumeDivergence = detectVolumeDivergence(candles);
+
+  // Regime detection runs automatically if SMAs are computed
+  if (settings.sma20 && settings.sma50 && settings.sma200) {
+    result.regime = detectRegime(
+      candles,
+      result.sma20?.values ?? null,
+      result.sma50?.values ?? null,
+      result.sma200?.values ?? null,
+      result.adx?.values ?? null,
+    );
+  }
 
   self.postMessage(result);
 };

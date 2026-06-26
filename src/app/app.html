@@ -33,6 +33,11 @@
           <button class="tf-btn" [attr.aria-pressed]="store.timeframe() === tf" (click)="store.setTimeframe($any(tf))">{{ tf }}</button>
         }
       </div>
+      <div class="range-bar" role="group" aria-label="Range selection">
+        @for (r of ranges; track r) {
+          <button class="tf-btn" [attr.aria-pressed]="store.range() === r" (click)="store.setRange($any(r))">{{ r }}</button>
+        }
+      </div>
     }
   </header>
 

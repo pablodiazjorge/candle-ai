@@ -11,6 +11,10 @@ export interface IndicatorSettings {
   ema9: boolean;
   ema21: boolean;
   volumeProfile: boolean;
+  adx: boolean;
+  volumeClimax: boolean;
+  volumeDryUp: boolean;
+  volumeDivergence: boolean;
 }
 
 export const DEFAULT_INDICATOR_SETTINGS: IndicatorSettings = {
@@ -23,6 +27,10 @@ export const DEFAULT_INDICATOR_SETTINGS: IndicatorSettings = {
   ema9: false,
   ema21: false,
   volumeProfile: false,
+  adx: false,
+  volumeClimax: false,
+  volumeDryUp: false,
+  volumeDivergence: false,
 };
 
 export interface RsiResult {
@@ -64,6 +72,46 @@ export interface VolumeProfileResult {
   valueAreaLow: number;
 }
 
+export interface AdxResult {
+  /** Map of timestamp → ADX value */
+  values: Record<number, number>;
+  period: number;
+}
+
+export type MarketRegime =
+  | 'strong_uptrend'
+  | 'weak_uptrend'
+  | 'ranging'
+  | 'weak_downtrend'
+  | 'strong_downtrend'
+  | 'transitional';
+
+export interface RegimeResult {
+  regime: MarketRegime;
+  /** Three-method consensus confidence (0-1) */
+  confidence: number;
+  methods: {
+    smaAlignment: string;
+    adxValue: number;
+    structure: string;
+  };
+}
+
+export interface VolumeClimaxResult {
+  /** Timestamps where volume ≥ 250% of 20-period average */
+  spikes: { time: number; ratio: number }[];
+}
+
+export interface VolumeDryUpResult {
+  /** Timestamps where volume ≤ 50% of 20-period average */
+  dips: { time: number; ratio: number }[];
+}
+
+export interface VolumeDivergenceResult {
+  /** Timestamps where price makes HH but volume is lower, or price makes LL but volume is lower */
+  divergences: { time: number; type: 'bullish' | 'bearish' }[];
+}
+
 export interface IndicatorResults {
   rsi: RsiResult | null;
   macd: MacdResult | null;
@@ -74,4 +122,9 @@ export interface IndicatorResults {
   ema9: EmaResult | null;
   ema21: EmaResult | null;
   volumeProfile: VolumeProfileResult | null;
+  adx: AdxResult | null;
+  regime: RegimeResult | null;
+  volumeClimax: VolumeClimaxResult | null;
+  volumeDryUp: VolumeDryUpResult | null;
+  volumeDivergence: VolumeDivergenceResult | null;
 }

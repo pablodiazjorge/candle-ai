@@ -73,7 +73,23 @@
     "ema21": "EMA 21",
     "ema21Desc": "Media Móvil Exponencial 21",
     "volumeProfile": "Perfil de Volumen",
-    "volumeProfileDesc": "Volumen por nivel de precio"
+    "volumeProfileDesc": "Volumen por nivel de precio",
+    "adx": "ADX (14)",
+    "adxDesc": "Índice Direccional Promedio",
+    "volumeClimax": "Clímax de Volumen",
+    "volumeClimaxDesc": "Detectar picos extremos de volumen",
+    "volumeDryUp": "Sequía de Volumen",
+    "volumeDryUpDesc": "Detectar volumen anormalmente bajo",
+    "volumeDivergence": "Divergencia de Volumen",
+    "volumeDivergenceDesc": "Desacuerdo precio vs volumen"
+  },
+  "regime": {
+    "strong_uptrend": "Tendencia Alcista Fuerte",
+    "weak_uptrend": "Tendencia Alcista Débil",
+    "ranging": "Lateral",
+    "weak_downtrend": "Tendencia Bajista Débil",
+    "strong_downtrend": "Tendencia Bajista Fuerte",
+    "transitional": "Transicional"
   },
   "pattern": {
     "title": "Patrones",
@@ -93,6 +109,10 @@
     "bearishHarami": "Harami Bajista",
     "threeWhiteSoldiers": "Tres Soldados Blancos",
     "threeBlackCrows": "Tres Cuervos Negros",
+    "doubleTop": "Doble Techo",
+    "doubleBottom": "Doble Suelo",
+    "headAndShoulders": "Cabeza y Hombros",
+    "inverseHeadAndShoulders": "Cabeza y Hombros Invertido",
     "showOnChart": "Mostrar en gráfico",
     "manageMarkers": "Gestionar marcadores",
     "selectMarkers": "Seleccionar Patrones a Mostrar",

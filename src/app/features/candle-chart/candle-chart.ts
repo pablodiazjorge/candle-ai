@@ -7,6 +7,7 @@ import {
   effect,
   input,
   inject,
+  signal,
 } from '@angular/core';
 import {
   createChart,
@@ -20,6 +21,7 @@ import {
   CandlestickData,
   LineData,
   HistogramData,
+  SeriesMarker,
   CandlestickSeries,
   LineSeries,
   HistogramSeries,
@@ -55,6 +57,8 @@ export class CandleChart implements AfterViewInit, OnDestroy {
   private macdSignalSeries: ISeriesApi<'Line'> | null = null;
   private macdLineSeries: ISeriesApi<'Line'> | null = null;
   private markersPlugin: ISeriesMarkersPluginApi<Time> | null = null;
+  private volumeProfileLines: any[] = [];
+  private volumeMarkers = signal<SeriesMarker<Time>[]>([]);
 
   private readonly resizeObserver = new ResizeObserver(() => {
     if (this.chart && this.chartContainer) {
@@ -85,12 +89,14 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       const pat = this.patterns();
       const visibleTypes = this.store.visiblePatternTypes();
       if (this.candleSeries && this.markersPlugin) {
+        let markers: SeriesMarker<Time>[] = [];
         if (visibleTypes.size > 0) {
           const filtered = pat.filter((p) => visibleTypes.has(p.type));
-          this.updatePatternMarkers(filtered);
-        } else {
-          this.markersPlugin.setMarkers([]);
+          markers = this.buildPatternMarkers(filtered);
         }
+        // Merge volume markers (tracked as signal)
+        markers = [...markers, ...this.volumeMarkers()];
+        this.markersPlugin.setMarkers(markers);
       }
     });
   }
@@ -176,27 +182,27 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     if (!this.chart) return;
 
     // SMA 20
-    if (ind.sma20) {
+    if (ind.sma20 && Object.keys(ind.sma20.values).length > 0) {
       this.addLineSeries(ind.sma20.values, '#b8b8b8', 'SMA 20');
     }
     // SMA 50
-    if (ind.sma50) {
+    if (ind.sma50 && Object.keys(ind.sma50.values).length > 0) {
       this.addLineSeries(ind.sma50.values, '#a855f7', 'SMA 50');
     }
     // SMA 200
-    if (ind.sma200) {
+    if (ind.sma200 && Object.keys(ind.sma200.values).length > 0) {
       this.addLineSeries(ind.sma200.values, '#eab308', 'SMA 200');
     }
     // EMA 9
-    if (ind.ema9) {
+    if (ind.ema9 && Object.keys(ind.ema9.values).length > 0) {
       this.addLineSeries(ind.ema9.values, '#22c55e', 'EMA 9');
     }
     // EMA 21
-    if (ind.ema21) {
+    if (ind.ema21 && Object.keys(ind.ema21.values).length > 0) {
       this.addLineSeries(ind.ema21.values, '#ef4444', 'EMA 21');
     }
     // Bollinger Bands
-    if (ind.bb) {
+    if (ind.bb && Object.keys(ind.bb.values).length > 0) {
       this.addLineSeries(
         Object.fromEntries(Object.entries(ind.bb.values).map(([t, v]) => [t, v.upper])),
         '#64748b',
@@ -215,14 +221,56 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     }
 
     // RSI (on its own price scale at bottom portion of pane)
-    if (ind.rsi) {
+    if (ind.rsi && Object.keys(ind.rsi.values).length > 0) {
       this.renderRsi(ind.rsi.values);
     }
 
     // MACD (on its own price scale in same pane)
-    if (ind.macd) {
+    if (ind.macd && Object.keys(ind.macd.values).length > 0) {
       this.renderMacd(ind.macd.values);
     }
+
+    // ADX (on its own price scale)
+    if (ind.adx && Object.keys(ind.adx.values).length > 0) {
+      this.renderAdx(ind.adx.values);
+    }
+
+    // Volume Profile POC marker
+    if (ind.volumeProfile && ind.volumeProfile.levels.length > 0) {
+      this.renderVolumeProfileMarkers(ind.volumeProfile);
+    } else {
+      // Clear price lines when volume profile is off
+      for (const line of this.volumeProfileLines) {
+        try { line._priceLine?.remove?.(); } catch { /* ignore */ }
+        try { this.candleSeries?.removePriceLine?.(line); } catch { /* ignore */ }
+      }
+      this.volumeProfileLines = [];
+    }
+
+    // Collect volume analysis markers (merged with pattern markers)
+    const volMarkers: SeriesMarker<Time>[] = [];
+    if (ind.volumeClimax) {
+      for (const s of ind.volumeClimax.spikes) {
+        volMarkers.push({ time: s.time as Time, position: 'aboveBar', color: '#f59e0b', shape: 'arrowDown', text: 'VC' });
+      }
+    }
+    if (ind.volumeDryUp) {
+      for (const d of ind.volumeDryUp.dips) {
+        volMarkers.push({ time: d.time as Time, position: 'belowBar', color: '#06b6d4', shape: 'circle', text: '↓' });
+      }
+    }
+    if (ind.volumeDivergence) {
+      for (const d of ind.volumeDivergence.divergences) {
+        volMarkers.push({
+          time: d.time as Time,
+          position: d.type === 'bullish' ? 'belowBar' : 'aboveBar',
+          color: d.type === 'bullish' ? '#22c55e' : '#ef4444',
+          shape: 'circle',
+          text: d.type === 'bullish' ? 'B' : 'B',
+        });
+      }
+    }
+    this.volumeMarkers.set(volMarkers);
   }
 
   private renderRsi(values: Record<number, number>): void {
@@ -348,6 +396,72 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     });
   }
 
+  private renderAdx(values: Record<number, number>): void {
+    if (!this.chart) return;
+
+    // Render ADX on its own price scale (0-100 range, not mixed with price)
+    const adxSeries = this.chart.addSeries(LineSeries, {
+      color: '#06b6d4',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      crosshairMarkerVisible: false,
+      priceScaleId: 'adx-scale',
+      priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
+    });
+
+    const lineData: LineData[] = Object.entries(values)
+      .map(([time, value]) => ({ time: Number(time) as Time, value }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+
+    adxSeries.setData(lineData);
+
+    this.chart.priceScale('adx-scale').applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0.02 },
+      mode: PriceScaleMode.Normal,
+      borderColor: '#06b6d4',
+    });
+
+    this.indicatorSeries.push(adxSeries);
+  }
+
+  private renderVolumeProfileMarkers(vp: { poc: number; valueAreaHigh: number; valueAreaLow: number }): void {
+    if (!this.candleSeries) return;
+
+    // Clear previous price lines
+    for (const line of this.volumeProfileLines) {
+      try { line._priceLine?.remove?.(); } catch { /* ignore */ }
+      try { this.candleSeries.removePriceLine?.(line); } catch { /* ignore */ }
+    }
+    this.volumeProfileLines = [];
+
+    const poc = this.candleSeries.createPriceLine({
+      price: vp.poc,
+      color: '#f59e0b',
+      lineWidth: 2,
+      lineStyle: 0,
+      axisLabelVisible: true,
+      title: 'POC',
+    });
+    const vah = this.candleSeries.createPriceLine({
+      price: vp.valueAreaHigh,
+      color: '#f59e0b66',
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: 'VAH',
+    });
+    const val = this.candleSeries.createPriceLine({
+      price: vp.valueAreaLow,
+      color: '#f59e0b66',
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: 'VAL',
+    });
+    this.volumeProfileLines = [poc, vah, val];
+  }
+
   private addLineSeries(values: Record<number, number>, color: string, _label: string): void {
     if (!this.chart) return;
 
@@ -394,14 +508,9 @@ export class CandleChart implements AfterViewInit, OnDestroy {
     }
   }
 
-  /** Render pattern markers on the candlestick series */
-  private updatePatternMarkers(patterns: DetectedPattern[]): void {
-    if (!this.markersPlugin) return;
-
-    if (patterns.length === 0) {
-      this.markersPlugin.setMarkers([]);
-      return;
-    }
+  /** Build pattern markers array (does not set them — caller merges with volume markers) */
+  private buildPatternMarkers(patterns: DetectedPattern[]): SeriesMarker<Time>[] {
+    if (patterns.length === 0) return [];
 
     const sentimentConfig: Record<string, { color: string; shape: 'arrowUp' | 'arrowDown' | 'circle' }> = {
       bullish: { color: '#22c55e', shape: 'arrowUp' },
@@ -409,7 +518,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
       neutral: { color: '#fbbf24', shape: 'circle' },
     };
 
-    const markers = patterns.map((p) => {
+    return patterns.map((p) => {
       const cfg = sentimentConfig[p.sentiment] ?? sentimentConfig['neutral'];
       return {
         time: p.time as Time,
@@ -421,7 +530,5 @@ export class CandleChart implements AfterViewInit, OnDestroy {
         textColor: '#ffffff',
       };
     });
-
-    this.markersPlugin.setMarkers(markers);
   }
 }

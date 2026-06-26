@@ -73,7 +73,23 @@
     "ema21": "EMA 21",
     "ema21Desc": "Exponential Moving Average 21",
     "volumeProfile": "Volume Profile",
-    "volumeProfileDesc": "Volume by price level"
+    "volumeProfileDesc": "Volume by price level",
+    "adx": "ADX (14)",
+    "adxDesc": "Average Directional Index",
+    "volumeClimax": "Volume Climax",
+    "volumeClimaxDesc": "Detect extreme volume spikes",
+    "volumeDryUp": "Volume Dry-Up",
+    "volumeDryUpDesc": "Detect unusually low volume",
+    "volumeDivergence": "Volume Divergence",
+    "volumeDivergenceDesc": "Price vs volume disagreement"
+  },
+  "regime": {
+    "strong_uptrend": "Strong Uptrend",
+    "weak_uptrend": "Weak Uptrend",
+    "ranging": "Ranging",
+    "weak_downtrend": "Weak Downtrend",
+    "strong_downtrend": "Strong Downtrend",
+    "transitional": "Transitional"
   },
   "pattern": {
     "title": "Patterns",
@@ -93,6 +109,10 @@
     "bearishHarami": "Bearish Harami",
     "threeWhiteSoldiers": "Three White Soldiers",
     "threeBlackCrows": "Three Black Crows",
+    "doubleTop": "Double Top",
+    "doubleBottom": "Double Bottom",
+    "headAndShoulders": "Head & Shoulders",
+    "inverseHeadAndShoulders": "Inv. Head & Shoulders",
     "showOnChart": "Show on chart",
     "manageMarkers": "Manage chart markers",
     "selectMarkers": "Select Patterns to Display",

@@ -32,6 +32,10 @@ export class IndicatorPanel {
     { key: 'ema9', label: 'indicator.ema9', description: 'indicator.ema9Desc' },
     { key: 'ema21', label: 'indicator.ema21', description: 'indicator.ema21Desc' },
     { key: 'volumeProfile', label: 'indicator.volumeProfile', description: 'indicator.volumeProfileDesc' },
+    { key: 'adx', label: 'indicator.adx', description: 'indicator.adxDesc' },
+    { key: 'volumeClimax', label: 'indicator.volumeClimax', description: 'indicator.volumeClimaxDesc' },
+    { key: 'volumeDryUp', label: 'indicator.volumeDryUp', description: 'indicator.volumeDryUpDesc' },
+    { key: 'volumeDivergence', label: 'indicator.volumeDivergence', description: 'indicator.volumeDivergenceDesc' },
   ];
 
   toggle(key: keyof IndicatorSettings): void {
@@ -50,6 +54,7 @@ export class IndicatorPanel {
       rsi: false, macd: false, bb: false,
       sma20: false, sma50: false, sma200: false,
       ema9: false, ema21: false, volumeProfile: false,
+      adx: false, volumeClimax: false, volumeDryUp: false, volumeDivergence: false,
     };
     this.store.setActiveIndicators(cleared);
     this.indicatorsChanged.emit(cleared);

@@ -340,12 +340,130 @@ const DETECTORS: DetectorFn[] = [
   detectThreeBlackCrows,
 ];
 
+// ─── Chart Pattern Detectors ───────────────────────────────────────
+
+type ChartDetectorFn = (candles: Candle[], i: number) => DetectedPattern | null;
+
+function detectDoubleTop(candles: Candle[], i: number): DetectedPattern | null {
+  // Need at least 15 candles before to establish a prior uptrend + peak separation
+  if (i < 15) return null;
+  const c = candles[i];
+
+  // Find two peaks in the lookback window
+  const lookback = candles.slice(0, i + 1);
+  const highs = lookback.map((c) => c.high);
+
+  // Find local maxima (potential peaks)
+  const peaks: { idx: number; value: number }[] = [];
+  for (let j = 5; j < highs.length - 1; j++) {
+    const isPeak = highs[j] > highs[j - 1] && highs[j] > highs[j - 2] &&
+                   highs[j] > highs[j + 1];
+    if (isPeak) peaks.push({ idx: j, value: highs[j] });
+  }
+
+  if (peaks.length < 2) return null;
+  const lastTwo = peaks.slice(-2);
+  const [p1, p2] = lastTwo;
+
+  // Peaks must be at similar levels (±3%)
+  if (Math.abs(p1.value - p2.value) / p1.value > 0.03) return null;
+
+  // At least 8 candles between peaks
+  if (p2.idx - p1.idx < 8) return null;
+
+  // Must be a trough between the peaks (at least 3% retracement)
+  const between = candles.slice(p1.idx, p2.idx);
+  const valleyLow = Math.min(...between.map((c) => c.low));
+  const retracement = (p1.value - valleyLow) / p1.value;
+  if (retracement < 0.03) return null;
+
+  // Confirmation: current close is below the valley
+  if (c.close >= valleyLow) return null;
+
+  // Prior trend must be up
+  const priorCandles = candles.slice(Math.max(0, p1.idx - 15), p1.idx);
+  if (priorCandles.length < 5) return null;
+  const priorStart = priorCandles[0].close;
+  const priorEnd = priorCandles[priorCandles.length - 1].close;
+  if (priorEnd <= priorStart) return null;
+
+  const confidence = clamp(
+    Math.min(retracement * 3, (p1.value - c.close) / p1.value * 5),
+    0,
+    1,
+  );
+
+  return {
+    type: 'double_top',
+    time: c.time,
+    sentiment: 'bearish',
+    confidence,
+    labelKey: 'pattern.doubleTop',
+  };
+}
+
+function detectDoubleBottom(candles: Candle[], i: number): DetectedPattern | null {
+  if (i < 15) return null;
+  const c = candles[i];
+
+  const lookback = candles.slice(0, i + 1);
+  const lows = lookback.map((c) => c.low);
+
+  const troughs: { idx: number; value: number }[] = [];
+  for (let j = 5; j < lows.length - 1; j++) {
+    const isTrough = lows[j] < lows[j - 1] && lows[j] < lows[j - 2] &&
+                     lows[j] < lows[j + 1];
+    if (isTrough) troughs.push({ idx: j, value: lows[j] });
+  }
+
+  if (troughs.length < 2) return null;
+  const lastTwo = troughs.slice(-2);
+  const [t1, t2] = lastTwo;
+
+  if (Math.abs(t1.value - t2.value) / t1.value > 0.03) return null;
+  if (t2.idx - t1.idx < 8) return null;
+
+  const between = candles.slice(t1.idx, t2.idx);
+  const rallyHigh = Math.max(...between.map((c) => c.high));
+  const rally = (rallyHigh - t1.value) / t1.value;
+  if (rally < 0.03) return null;
+
+  // Confirmation: current close is above the rally high
+  if (c.close <= rallyHigh) return null;
+
+  // Prior trend must be down
+  const priorCandles = candles.slice(Math.max(0, t1.idx - 15), t1.idx);
+  if (priorCandles.length < 5) return null;
+  const priorStart = priorCandles[0].close;
+  const priorEnd = priorCandles[priorCandles.length - 1].close;
+  if (priorEnd >= priorStart) return null;
+
+  const confidence = clamp(
+    Math.min(rally * 3, (c.close - t1.value) / t1.value * 5),
+    0,
+    1,
+  );
+
+  return {
+    type: 'double_bottom',
+    time: c.time,
+    sentiment: 'bullish',
+    confidence,
+    labelKey: 'pattern.doubleBottom',
+  };
+}
+
+const CHART_DETECTORS: ChartDetectorFn[] = [
+  detectDoubleTop,
+  detectDoubleBottom,
+];
+
 // ─── Service ───────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
 export class PatternsService {
   /**
-   * Detect all patterns in the given candle array.
+   * Detect all candlestick patterns in the given candle array.
    * Returns detected patterns sorted by time.
    */
   detectAll(candles: Candle[]): DetectedPattern[] {
@@ -362,10 +480,33 @@ export class PatternsService {
       }
     }
 
-    // Sort by time ascending
+    return this.deduplicate(patterns);
+  }
+
+  /**
+   * Detect chart patterns (Double Top/Bottom, H&S, etc.).
+   * Requires more candles and wider lookback than candlestick patterns.
+   */
+  detectChartPatterns(candles: Candle[]): DetectedPattern[] {
+    if (candles.length < 15) return [];
+
+    const patterns: DetectedPattern[] = [];
+
+    // Chart patterns complete at the last candle (confirmation close)
+    for (const detector of CHART_DETECTORS) {
+      const result = detector(candles, candles.length - 1);
+      if (result && result.confidence >= 0.4) {
+        patterns.push(result);
+      }
+    }
+
+    return this.deduplicate(patterns);
+  }
+
+  /** Sort by time and keep only highest-confidence detection per timestamp */
+  private deduplicate(patterns: DetectedPattern[]): DetectedPattern[] {
     patterns.sort((a, b) => a.time - b.time);
 
-    // Deduplicate: keep only one pattern per time (highest confidence)
     const seen = new Map<number, DetectedPattern>();
     for (const p of patterns) {
       const existing = seen.get(p.time);

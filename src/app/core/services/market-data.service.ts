@@ -20,7 +20,7 @@ export interface YahooChartResponse {
 }
 
 export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
-export type Range = '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y';
+export type Range = '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | 'max';
 
 @Injectable({ providedIn: 'root' })
 export class MarketDataService {
@@ -41,23 +41,21 @@ export class MarketDataService {
 
     const yahooUrl = `${this.yahooBase}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
 
-    // Try direct first, then CORS proxy, then mock
-    for (const fetchUrl of [yahooUrl, `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`]) {
-      try {
-        const candles = await this.tryFetch(fetchUrl);
-        if (candles.length > 0) {
-          this.loading.set(false);
-          return candles;
-        }
-      } catch (err) {
-        console.warn(`Fetch failed for ${fetchUrl.substring(0, 60)}...:`, err);
+    // Try direct connection only — no CORS proxy (returns limited/inconsistent data)
+    try {
+      const candles = await this.tryFetch(yahooUrl);
+      if (candles.length > 0) {
+        this.loading.set(false);
+        return candles;
       }
+    } catch (err) {
+      console.warn(`Fetch failed for ${yahooUrl.substring(0, 60)}...:`, err);
     }
 
-    // Final fallback: synthetic data
+    // Fallback: synthetic data
     console.warn('All fetch attempts failed, using synthetic data');
     this.loading.set(false);
-    return this.fetchMockData(symbol);
+    return this.fetchMockData(symbol, interval, range);
   }
 
   private async tryFetch(url: string): Promise<Candle[]> {
@@ -71,9 +69,8 @@ export class MarketDataService {
   }
 
   /** Fallback: generate per-ticker synthetic OHLCV data */
-  private async fetchMockData(symbol: string): Promise<Candle[]> {
-    // Always generate fresh synthetic data per ticker for visual variety
-    return generateSynthetic(symbol);
+  private async fetchMockData(symbol: string, interval: Timeframe, range: Range): Promise<Candle[]> {
+    return generateSynthetic(symbol, interval, range);
   }
 }
 
@@ -110,16 +107,27 @@ function perturbData(base: Candle[], symbol: string): Candle[] {
   }));
 }
 
-function generateSynthetic(symbol: string): Candle[] {
+function generateSynthetic(symbol: string, interval: Timeframe, range: Range): Candle[] {
   const rng = mulberry32(hashString(symbol));
   const trend = (rng() - 0.5) * 0.6;
   const approxPrice = knownPrice(symbol);
-  // Use known price as center with ±20% variation, or fall back to asset class range
   const basePrice = approxPrice
     ? approxPrice * (0.8 + rng() * 0.4)
     : priceRange(symbol).min + rng() * (priceRange(symbol).max - priceRange(symbol).min);
   const volatility = basePrice * (0.01 + rng() * 0.04);
-  const count = 100 + Math.floor(rng() * 60);
+
+  // Candle interval in seconds
+  const intervalSeconds: Record<Timeframe, number> = {
+    '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400, '1w': 604800,
+  };
+  const step = intervalSeconds[interval] ?? 86400;
+
+  const rangeCounts: Record<Range, number> = {
+    '1d': 1, '5d': 5, '1mo': 21, '3mo': 63, '6mo': 126,
+    '1y': 252, '2y': 504, '5y': 1260, 'max': 2520,
+  };
+  // Cap intraday candles to avoid absurd counts
+  const count = Math.min(rangeCounts[range] ?? 126, step < 3600 ? 2000 : 9999);
   const candles: Candle[] = [];
   const now = Math.floor(Date.now() / 1000);
   let price = basePrice;
@@ -133,7 +141,7 @@ function generateSynthetic(symbol: string): Candle[] {
     price = close;
 
     candles.push({
-      time: now - i * 86400,
+      time: now - i * step,
       open: +open.toFixed(2),
       high: +high.toFixed(2),
       low: +low.toFixed(2),

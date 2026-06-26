@@ -115,6 +115,7 @@
   border-radius: 13px;
   transition: background 0.2s ease;
   border: 1px solid var(--color-border);
+  pointer-events: none;
 }
 
 .toggle-slider::before {

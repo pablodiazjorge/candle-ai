@@ -23,6 +23,10 @@ const ALL_PATTERN_META: { type: PatternType; sentiment: string; labelKey: string
   { type: 'bearish_harami', sentiment: 'bearish', labelKey: 'pattern.bearishHarami' },
   { type: 'three_white_soldiers', sentiment: 'bullish', labelKey: 'pattern.threeWhiteSoldiers' },
   { type: 'three_black_crows', sentiment: 'bearish', labelKey: 'pattern.threeBlackCrows' },
+  { type: 'double_top', sentiment: 'bearish', labelKey: 'pattern.doubleTop' },
+  { type: 'double_bottom', sentiment: 'bullish', labelKey: 'pattern.doubleBottom' },
+  { type: 'head_and_shoulders', sentiment: 'bearish', labelKey: 'pattern.headAndShoulders' },
+  { type: 'inverse_head_and_shoulders', sentiment: 'bullish', labelKey: 'pattern.inverseHeadAndShoulders' },
 ];
 
 @Component({

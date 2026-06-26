@@ -1,6 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Candle } from '../models/candle.model';
-import { IndicatorResults, IndicatorSettings, DEFAULT_INDICATOR_SETTINGS } from '../models/indicator.model';
+import { IndicatorResults, IndicatorSettings, RegimeResult, DEFAULT_INDICATOR_SETTINGS } from '../models/indicator.model';
 import { DetectedPattern, PatternType } from '../models/pattern.model';
 import { AnalysisResult } from '../models/analysis.model';
 import { Timeframe, Range } from '../services/market-data.service';
@@ -20,7 +20,7 @@ export interface TickerState {
 const initialState: TickerState = {
   selectedTicker: null,
   timeframe: '1d',
-  range: '6mo',
+  range: 'max',
   candleData: [],
   indicators: null,
   activeIndicators: DEFAULT_INDICATOR_SETTINGS,
@@ -38,6 +38,7 @@ export class TickerStore {
   readonly candleData = signal<Candle[]>(initialState.candleData);
   readonly indicators = signal<IndicatorResults | null>(initialState.indicators);
   readonly patterns = signal<DetectedPattern[]>(initialState.patterns);
+  readonly regime = signal<RegimeResult | null>(null);
   readonly analysis = signal<AnalysisResult | null>(initialState.analysis);
   readonly watchlist = signal<string[]>(initialState.watchlist);
   readonly activeIndicators = signal<IndicatorSettings>(initialState.activeIndicators);
@@ -69,6 +70,7 @@ export class TickerStore {
     this.indicators.set(null);
     this.activeIndicators.set(DEFAULT_INDICATOR_SETTINGS);
     this.patterns.set([]);
+    this.regime.set(null);
     this.analysis.set(null);
   }
 
@@ -90,6 +92,10 @@ export class TickerStore {
 
   setPatterns(pat: DetectedPattern[]): void {
     this.patterns.set(pat);
+  }
+
+  setRegime(r: RegimeResult): void {
+    this.regime.set(r);
   }
 
   setAnalysis(a: AnalysisResult): void {
@@ -164,6 +170,7 @@ export class TickerStore {
     this.indicators.set(null);
     this.activeIndicators.set(DEFAULT_INDICATOR_SETTINGS);
     this.patterns.set([]);
+    this.regime.set(null);
     this.analysis.set(null);
   }
 }
