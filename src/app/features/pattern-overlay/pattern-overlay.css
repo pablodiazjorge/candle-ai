@@ -206,6 +206,23 @@
 .pattern-item.bearish .pattern-confidence { color: var(--color-red); }
 .pattern-item.neutral .pattern-confidence { color: #fbbf24; }
 
+/* ─── Grade Badge ─────────────────────────────────────────── */
+
+.pattern-grade {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  line-height: 1.4;
+  font-family: var(--font-mono);
+}
+
+.grade-a { background: #22c55e33; color: #22c55e; }
+.grade-b { background: #3b82f633; color: #3b82f6; }
+.grade-c { background: #f59e0b33; color: #f59e0b; }
+.grade-d { background: #ef444433; color: #ef4444; }
+
 /* ─── Empty State ─────────────────────────────────────────── */
 
 .empty-state {

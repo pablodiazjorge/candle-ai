@@ -453,9 +453,183 @@ function detectDoubleBottom(candles: Candle[], i: number): DetectedPattern | nul
   };
 }
 
+function detectHeadAndShoulders(candles: Candle[], i: number): DetectedPattern | null {
+  // Need sufficient lookback for a multi-peak pattern
+  if (i < 30) return null;
+  const c = candles[i];
+
+  // Find peaks (local maxima) in the candle range
+  const highs = candles.slice(0, i + 1).map((c) => c.high);
+  const lows = candles.slice(0, i + 1).map((c) => c.low);
+
+  const peaks: { idx: number; value: number }[] = [];
+  for (let j = 5; j < highs.length - 1; j++) {
+    if (highs[j] > highs[j - 1] && highs[j] > highs[j - 2] &&
+        highs[j] > highs[j + 1]) {
+      peaks.push({ idx: j, value: highs[j] });
+    }
+  }
+
+  // Need at least 3 peaks
+  if (peaks.length < 3) return null;
+
+  // Try last 5 peaks as potential LS-Head-RS combinations
+  const candidates = peaks.slice(-5);
+  for (let a = 0; a < candidates.length - 2; a++) {
+    for (let b = a + 1; b < candidates.length - 1; b++) {
+      for (let d = b + 1; d < candidates.length; d++) {
+        const ls = candidates[a];
+        const head = candidates[b];
+        const rs = candidates[d];
+
+        // Head must be higher than both shoulders
+        if (head.value <= ls.value || head.value <= rs.value) continue;
+
+        // Shoulders should be near same level (±8%, relaxed for v1)
+        const shoulderDiff = Math.abs(ls.value - rs.value) / ls.value;
+        if (shoulderDiff > 0.08) continue;
+
+        // Trough between LS and Head (T1)
+        const mid1 = lows.slice(ls.idx, head.idx);
+        const t1 = Math.min(...mid1);
+        const t1Idx = ls.idx + mid1.indexOf(t1);
+
+        // Trough between Head and RS (T2)
+        const mid2 = lows.slice(head.idx, rs.idx);
+        const t2 = Math.min(...mid2);
+        const t2Idx = head.idx + mid2.indexOf(t2);
+
+        // Troughs should be at similar level (±10%, relaxed)
+        const troughDiff = Math.abs(t1 - t2) / t1;
+        if (troughDiff > 0.10) continue;
+
+        // Prior uptrend before LS
+        const priorStart = Math.max(0, ls.idx - 20);
+        const priorEnd = ls.idx;
+        if (priorEnd - priorStart < 5) continue;
+        const priorTrend = candles[priorEnd].close > candles[priorStart].close;
+        if (!priorTrend) continue;
+
+        // Neckline break: current close below neckline
+        const necklineSlope = (t2 - t1) / (t2Idx - t1Idx);
+        const necklineAtNow = t1 + necklineSlope * (i - t1Idx);
+        if (c.close >= necklineAtNow) continue;
+
+        // Volume check: declining across the three peaks
+        const volLS = candles[ls.idx].volume;
+        const volHead = candles[head.idx].volume;
+        const volRS = candles[rs.idx].volume;
+        const volDeclining = volHead < volLS || volRS < volHead;
+
+        const confidence = clamp(
+          (1 - shoulderDiff * 3) * (volDeclining ? 0.9 : 0.6) * 0.8,
+          0,
+          1,
+        );
+
+        return {
+          type: 'head_and_shoulders',
+          time: c.time,
+          sentiment: 'bearish',
+          confidence,
+          labelKey: 'pattern.headAndShoulders',
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function detectInverseHeadAndShoulders(candles: Candle[], i: number): DetectedPattern | null {
+  if (i < 30) return null;
+  const c = candles[i];
+
+  const highs = candles.slice(0, i + 1).map((c) => c.high);
+  const lows = candles.slice(0, i + 1).map((c) => c.low);
+
+  // Find troughs (local minima)
+  const troughs: { idx: number; value: number }[] = [];
+  for (let j = 5; j < lows.length - 1; j++) {
+    if (lows[j] < lows[j - 1] && lows[j] < lows[j - 2] &&
+        lows[j] < lows[j + 1]) {
+      troughs.push({ idx: j, value: lows[j] });
+    }
+  }
+
+  if (troughs.length < 3) return null;
+
+  const candidates = troughs.slice(-5);
+  for (let a = 0; a < candidates.length - 2; a++) {
+    for (let b = a + 1; b < candidates.length - 1; b++) {
+      for (let d = b + 1; d < candidates.length; d++) {
+        const ls = candidates[a];
+        const head = candidates[b];
+        const rs = candidates[d];
+
+        // Head must be lower than both shoulders
+        if (head.value >= ls.value || head.value >= rs.value) continue;
+
+        // Shoulders near same level
+        const shoulderDiff = Math.abs(ls.value - rs.value) / ls.value;
+        if (shoulderDiff > 0.08) continue;
+
+        // Rally between LS and Head
+        const mid1 = highs.slice(ls.idx, head.idx);
+        const r1 = Math.max(...mid1);
+        const r1Idx = ls.idx + mid1.indexOf(r1);
+
+        // Rally between Head and RS
+        const mid2 = highs.slice(head.idx, rs.idx);
+        const r2 = Math.max(...mid2);
+        const r2Idx = head.idx + mid2.indexOf(r2);
+
+        // Rallies at similar level
+        const rallyDiff = Math.abs(r1 - r2) / r1;
+        if (rallyDiff > 0.10) continue;
+
+        // Prior downtrend
+        const priorStart = Math.max(0, ls.idx - 20);
+        const priorEnd = ls.idx;
+        if (priorEnd - priorStart < 5) continue;
+        const priorTrend = candles[priorEnd].close < candles[priorStart].close;
+        if (!priorTrend) continue;
+
+        // Neckline break upward
+        const necklineSlope = (r2 - r1) / (r2Idx - r1Idx);
+        const necklineAtNow = r1 + necklineSlope * (i - r1Idx);
+        if (c.close <= necklineAtNow) continue;
+
+        const volLS = candles[ls.idx].volume;
+        const volHead = candles[head.idx].volume;
+        const volRS = candles[rs.idx].volume;
+        const volDeclining = volHead < volLS || volRS < volHead;
+
+        const confidence = clamp(
+          (1 - shoulderDiff * 3) * (volDeclining ? 0.9 : 0.6) * 0.8,
+          0,
+          1,
+        );
+
+        return {
+          type: 'inverse_head_and_shoulders',
+          time: c.time,
+          sentiment: 'bullish',
+          confidence,
+          labelKey: 'pattern.inverseHeadAndShoulders',
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 const CHART_DETECTORS: ChartDetectorFn[] = [
   detectDoubleTop,
   detectDoubleBottom,
+  detectHeadAndShoulders,
+  detectInverseHeadAndShoulders,
 ];
 
 // ─── Service ───────────────────────────────────────────────────────

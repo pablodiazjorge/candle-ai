@@ -13,6 +13,7 @@ import { TickerStore } from './core/state/ticker.store';
 import { MarketDataService } from './core/services/market-data.service';
 import { IndicatorsService } from './core/services/indicators.service';
 import { PatternsService } from './core/services/patterns.service';
+import { GradingService } from './core/services/grading.service';
 import { CacheStore } from './core/state/cache.store';
 import { IndicatorSettings } from './core/models/indicator.model';
 import { Candle } from './core/models/candle.model';
@@ -30,6 +31,7 @@ export class App implements OnInit {
   private readonly marketData = inject(MarketDataService);
   private readonly indicatorsService = inject(IndicatorsService);
   private readonly patternsService = inject(PatternsService);
+  private readonly gradingService = inject(GradingService);
   private readonly cacheStore = inject(CacheStore);
 
   readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'] as const;
@@ -101,7 +103,11 @@ export class App implements OnInit {
   private detectPatterns(candles: Candle[]): void {
     const candlestickPatterns = this.patternsService.detectAll(candles);
     const chartPatterns = this.patternsService.detectChartPatterns(candles);
-    this.store.setPatterns([...candlestickPatterns, ...chartPatterns]);
+    const graded = this.gradingService.gradeAll(
+      [...candlestickPatterns, ...chartPatterns],
+      candles,
+    );
+    this.store.setPatterns(graded);
   }
 
   /** Compute indicators if any are active */

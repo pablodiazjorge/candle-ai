@@ -40,6 +40,9 @@
             <span class="pattern-name">{{ p.labelKey | translate }}</span>
           </div>
           <span class="pattern-confidence">{{ formatConfidence(p.confidence) }}</span>
+          @if (p.grade) {
+            <span class="pattern-grade" [class]="'grade-' + p.grade.toLowerCase()">{{ p.grade }}</span>
+          }
         </li>
       }
     </ul>
