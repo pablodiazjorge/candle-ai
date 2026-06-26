@@ -94,6 +94,54 @@ export class LlmProvider {
     return content;
   }
 
+  /**
+   * Multi-turn conversation — sends full message history.
+   * Used by interactive follow-up (Epic 8 Track B).
+   * Enforces a max of 10 messages to protect small local models.
+   */
+  async completeMultiTurn(messages: LlmMessage[]): Promise<string> {
+    const url = `${this.baseUrl}/chat/completions`;
+
+    // Enforce max messages to avoid token-limit errors with small models
+    const clamped = messages.length > 10
+      ? [messages[0], ...messages.slice(-9)]
+      : messages;
+
+    const body: LlmCompletionRequest = {
+      model: this.model,
+      messages: clamped,
+      max_tokens: this.maxTokens,
+      temperature: this.temperature,
+    };
+    // NOTE: no response_format — follow-up is conversational, not JSON
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`LLM API error ${response.status}: ${errorText}`);
+    }
+
+    const json: LlmCompletionResponse = await response.json();
+    let content = json.choices?.[0]?.message?.content;
+
+    if (!content) {
+      content = (json.choices?.[0]?.message as Record<string, unknown>)?.['reasoning'] as string;
+    }
+
+    if (!content) {
+      throw new Error('Empty response from LLM');
+    }
+
+    return content;
+  }
+
   /** Quick health check — calls the models endpoint */
   async healthCheck(): Promise<boolean> {
     try {

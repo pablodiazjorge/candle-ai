@@ -367,8 +367,8 @@ language explanation of the quantitative output).
 | 4. Infrastructure | ✅ | Cache, state, LLM hardening, a11y |
 | 5. Knowledge Base | ✅ | Framework, patterns, 2026 adaptations |
 | 6. Quantitative Foundation | ✅ | Regime, chart patterns, volume, grading |
-| 7. Confluence Engine | 🚧 | Probabilistic scoring, signal hierarchy, risk |
-| 8. AI Augmentation | 🔮 | Narrative LLM, multi-TF, interactive analysis |
+| 7. Confluence Engine | ✅ | Probabilistic scoring, signal hierarchy, risk |
+| 8. AI Augmentation | ✅ | Narrative LLM, multi-TF, follow-up chat, history |
 
 ### Dependency Chain
 

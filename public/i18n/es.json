@@ -166,6 +166,21 @@
     "support": "Soporte",
     "resistance": "Resistencia"
   },
+  "confluence": {
+    "title": "Puntuación de Confluencia",
+    "tier": {
+      "high": "ALTA",
+      "medium": "MEDIA",
+      "low": "BAJA",
+      "neutral": "NEUTRAL"
+    },
+    "signals": "señales",
+    "stopLoss": "Stop-Loss",
+    "takeProfit": "Take-Profit",
+    "riskReward": "R:R",
+    "positionSize": "Tamaño Pos.",
+    "shares": "acc."
+  },
   "export": {
     "title": "Exportar Pine Script",
     "copy": "Copiar Código",

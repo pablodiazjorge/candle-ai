@@ -1,23 +1,29 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { LlmProvider } from '../llm/llm-provider';
+import { LlmProvider, LlmMessage } from '../llm/llm-provider';
 import { LlmSettingsStore } from '../state/llm-settings.store';
 import { TickerStore } from '../state/ticker.store';
-import { AnalysisResult } from '../models/analysis.model';
+import { CacheStore } from '../state/cache.store';
+import { AnalysisResult, ConfluenceResult } from '../models/analysis.model';
 import { Candle } from '../models/candle.model';
-import { IndicatorResults } from '../models/indicator.model';
+import { IndicatorResults, RegimeResult } from '../models/indicator.model';
 import { DetectedPattern } from '../models/pattern.model';
 
 @Injectable({ providedIn: 'root' })
 export class AnalysisService {
   private readonly settingsStore = inject(LlmSettingsStore);
   private readonly tickerStore = inject(TickerStore);
+  private readonly cacheStore = inject(CacheStore);
 
   readonly analyzing = signal(false);
   readonly error = signal<string | null>(null);
 
   /**
    * Run LLM analysis on the current ticker data.
-   * Requires indicators and/or patterns to provide meaningful output.
+   *
+   * After Epic 7, the ConfluenceService deterministically computes
+   * direction, tier, probability, signals, and risk. The LLM is now a
+   * narrative explainer — it receives the ConfluenceResult and explains
+   * the story, rather than recomputing the analysis from raw data.
    */
   async runAnalysis(): Promise<AnalysisResult | null> {
     const config = this.settingsStore.activeConfig();
@@ -50,11 +56,23 @@ export class AnalysisService {
         config.temperature,
       );
 
+      // Epic 7: capture deterministic confluence + regime for narrative prompt
+      const confluence = this.tickerStore.confluence();
+      const regime = this.tickerStore.regime();
+      const timeframe = this.tickerStore.timeframe();
+
       const systemPrompt = this.buildSystemPrompt();
-      const userPrompt = this.buildUserPrompt(ticker, candles);
+      const userPrompt = this.buildUserPrompt(ticker, candles, confluence, regime);
 
       const rawResponse = await provider.complete(systemPrompt, userPrompt);
       const result = this.parseResponse(rawResponse, ticker);
+
+      // Epic 8 Track C: save to analysis history
+      if (confluence) {
+        this.cacheStore.saveAnalysis(ticker, timeframe, confluence, result).catch(() => {
+          // History save is non-critical — ignore errors
+        });
+      }
 
       this.analyzing.set(false);
       return result;
@@ -67,25 +85,79 @@ export class AnalysisService {
     }
   }
 
-  /** Build the system prompt with instructions for the LLM */
-  private buildSystemPrompt(): string {
-    return `You are an expert financial market analyst. Your task is to analyze technical indicators and candlestick patterns for a given financial instrument and provide a structured JSON analysis.
+  /**
+   * Ask a follow-up question about the current analysis (Epic 8 Track B).
+   * Returns a natural language answer, not structured JSON.
+   */
+  async askFollowUp(question: string, conversationHistory: LlmMessage[]): Promise<string | null> {
+    const config = this.settingsStore.activeConfig();
+    if (!config.apiKey || !config.baseUrl) return null;
 
-Rules:
-1. Be objective and data-driven. Base your analysis ONLY on the provided data.
-2. Use clear, concise language. Avoid speculation.
-3. Identify key support and resistance levels from price action.
-4. Evaluate risk based on volatility, indicator readings, and pattern signals.
-5. Return a valid JSON object matching the specified schema exactly.
-6. Do NOT include markdown code fences, only raw JSON.`;
+    const provider = new LlmProvider(
+      config.baseUrl,
+      config.apiKey,
+      config.model,
+      config.maxTokens,
+      config.temperature,
+    );
+
+    // Build system context from current confluence + analysis
+    const confluence = this.tickerStore.confluence();
+    const analysis = this.tickerStore.analysis();
+
+    let systemContext = 'You are a financial market analyst answering follow-up questions about a completed analysis. Be concise and specific. Reference the actual signals and data from the analysis. Do NOT recompute or contradict the deterministic confluence result.';
+
+    if (confluence) {
+      systemContext += `\n\nThe deterministic analysis determined: ${confluence.direction.toUpperCase()} direction, ${confluence.tier} confidence tier, ${(confluence.probability * 100).toFixed(0)}% bullish probability.`;
+      systemContext += `\nContributing signals: ${confluence.contributingSignals.map((s) => `${s.signal} (${s.appliedModifier > 0 ? '+' : ''}${(s.appliedModifier * 100).toFixed(0)}%)`).join(', ')}.`;
+    }
+
+    if (analysis) {
+      systemContext += `\n\nThe narrative analysis summary: ${analysis.summary}`;
+    }
+
+    const messages: LlmMessage[] = [
+      { role: 'system', content: systemContext },
+      ...conversationHistory,
+      { role: 'user', content: question },
+    ];
+
+    try {
+      return await provider.completeMultiTurn(messages);
+    } catch (err) {
+      console.error('Follow-up failed:', err);
+      return null;
+    }
   }
 
-  /** Build the user prompt with indicator + pattern + price data */
-  private buildUserPrompt(ticker: string, candles: Candle[]): string {
-    const indicators = this.tickerStore.indicators();
-    const patterns = this.tickerStore.patterns();
-    const timeframe = this.tickerStore.timeframe();
+  /** Build the system prompt — LLM is a narrative explainer, not primary analyst */
+  private buildSystemPrompt(): string {
+    return `You are an expert financial narrative writer. Your task is to explain a quantitative market analysis in natural language for a retail trader audience.
 
+CRITICAL RULES:
+1. The quantitative analysis (direction, confidence tier, probability, risk parameters) is DETERMINISTICALLY computed by a rules engine. You CANNOT change or contradict it.
+2. Your job is to EXPLAIN the story behind the numbers in plain, accessible language.
+3. The trend direction in your response MUST match the confluence direction exactly.
+4. The risk level in your response MUST follow the confluence tier: HIGH confidence → "low" risk, MEDIUM → "medium" risk, LOW/NEUTRAL → "high" risk.
+5. Use the supplementary indicator data only to add color and context to your narrative.
+6. Return a valid JSON object matching the specified schema exactly.
+7. Do NOT include markdown code fences, only raw JSON.`;
+  }
+
+  /**
+   * Build the user prompt.
+   *
+   * Epic 8 restructured: ConfluenceResult (deterministic) is the PRIMARY
+   * input. Raw indicators and patterns are SUPPLEMENTARY context only.
+   * Falls back to raw-data prompt when no confluence data exists.
+   */
+  private buildUserPrompt(
+    ticker: string,
+    candles: Candle[],
+    confluence: ConfluenceResult | null,
+    regime: RegimeResult | null,
+  ): string {
+    const timeframe = this.tickerStore.timeframe();
     const last = candles[candles.length - 1];
     const priceChange = candles.length >= 2
       ? ((last.close - candles[0].close) / candles[0].close * 100).toFixed(2)
@@ -93,26 +165,150 @@ Rules:
 
     const sections: string[] = [];
 
-    // Ticker info
-    sections.push(`## Asset\nTicker: ${ticker}\nTimeframe: ${timeframe}\nCandles analyzed: ${candles.length}`);
-    sections.push(`Current price: $${last.close.toFixed(2)}\nPeriod high: $${this.max(candles, 'high').toFixed(2)}\nPeriod low: $${this.min(candles, 'low').toFixed(2)}\nPeriod change: ${priceChange}%`);
+    // Asset header
+    sections.push(`## Asset\nTicker: ${ticker}\nTimeframe: ${timeframe}\nCandles analyzed: ${candles.length}\nCurrent price: $${last.close.toFixed(2)}\nPeriod high: $${this.max(candles, 'high').toFixed(2)}\nPeriod low: $${this.min(candles, 'low').toFixed(2)}\nPeriod change: ${priceChange}%`);
 
-    // Indicators
-    if (indicators) {
-      sections.push(this.formatIndicators(indicators));
-    }
+    if (confluence) {
+      // ── Epic 8 Track A: Multi-timeframe weekly context ──────────
+      const weeklyConfluence = this.tickerStore.weeklyConfluence();
+      if (weeklyConfluence) {
+        sections.push(`## Weekly Timeframe Context
+Direction: ${weeklyConfluence.direction.toUpperCase()}
+Confidence Tier: ${weeklyConfluence.tier}
+Probability: ${(weeklyConfluence.probability * 100).toFixed(0)}% bullish
 
-    // Patterns
-    if (patterns.length > 0) {
-      sections.push(this.formatPatterns(patterns));
+Use this to contextualize the daily analysis below. A daily signal that aligns with the weekly structure is stronger. A daily signal that contradicts the weekly structure should be noted as counter-trend.`);
+      }
+
+      // ── Epic 8: ConfluenceResult is the PRIMARY input ──────────
+      sections.push(this.formatConfluencePrimary(confluence, regime));
+
+      // Supplementary: condensed indicator snapshot (for color/context only)
+      const indicators = this.tickerStore.indicators();
+      if (indicators) {
+        sections.push(this.formatIndicatorsCondensed(indicators));
+      }
     } else {
-      sections.push('## Patterns\nNo candlestick patterns detected.');
+      // ── Fallback: raw data when confluence not available ────────
+      const indicators = this.tickerStore.indicators();
+      if (indicators) {
+        sections.push(this.formatIndicators(indicators));
+      }
+
+      const patterns = this.tickerStore.patterns();
+      if (patterns.length > 0) {
+        sections.push(this.formatPatterns(patterns));
+      } else {
+        sections.push('## Patterns\nNo candlestick patterns detected.');
+      }
     }
 
-    // Schema
+    // Schema (unchanged)
     sections.push(this.buildSchemaInstruction());
 
     return sections.join('\n\n');
+  }
+
+  /**
+   * Format the deterministic ConfluenceResult as the primary narrative input.
+   * The LLM explains this — it does NOT recompute or contradict it.
+   */
+  private formatConfluencePrimary(
+    c: ConfluenceResult,
+    regime: RegimeResult | null,
+  ): string {
+    const lines: string[] = [];
+
+    // ── Header: what the quantitative engine determined ──
+    lines.push('## Confluence Analysis (deterministic — DO NOT CHANGE)');
+    lines.push(`Direction: ${c.direction.toUpperCase()}`);
+    lines.push(`Confidence Tier: ${c.tier}`);
+    lines.push(`Bullish Probability: ${(c.probability * 100).toFixed(0)}%`);
+    lines.push(`Risk Level (derived from tier): ${c.tier === 'HIGH' ? 'low' : c.tier === 'MEDIUM' ? 'medium' : 'high'}`);
+
+    // ── Regime context ──
+    if (regime) {
+      lines.push(`\nMarket Regime: ${regime.regime.replace(/_/g, ' ')}`);
+      lines.push(`ADX: ${regime.methods.adxValue.toFixed(0)} | SMA Alignment: ${regime.methods.smaAlignment} | Structure: ${regime.methods.structure}`);
+    }
+
+    // ── Contributing signals with impact ──
+    lines.push(`\n### Evidence (${c.contributingSignals.length} signals)`);
+    for (const s of c.contributingSignals) {
+      const modifierStr = s.appliedModifier > 0
+        ? `+${(s.appliedModifier * 100).toFixed(0)}% bullish`
+        : s.appliedModifier < 0
+          ? `${(s.appliedModifier * 100).toFixed(0)}% bearish`
+          : 'neutral';
+      lines.push(`- ${s.signal} [${modifierStr}]: ${s.description}`);
+    }
+
+    // ── Risk parameters ──
+    if (c.riskParams.stopLoss) {
+      lines.push(`\n### Risk Parameters`);
+      lines.push(`Stop-Loss: $${c.riskParams.stopLoss.toFixed(2)}`);
+      if (c.riskParams.takeProfit) {
+        lines.push(`Take-Profit: $${c.riskParams.takeProfit.toFixed(2)}`);
+      }
+      if (c.riskParams.riskRewardRatio) {
+        lines.push(`Risk-Reward: 1:${c.riskParams.riskRewardRatio.toFixed(1)}`);
+      }
+      if (c.riskParams.positionSize) {
+        lines.push(`Position Size: ${c.riskParams.positionSize} shares`);
+      }
+    }
+
+    // ── Overrides ──
+    if (c.overridesApplied.length > 0) {
+      lines.push(`\n### 2026 Market Overrides Applied`);
+      for (const o of c.overridesApplied) {
+        lines.push(`- ${o}`);
+      }
+    }
+
+    // ── Narrative instructions ──
+    lines.push(`\n### Your Task`);
+    lines.push('Explain the analysis above in natural language for a retail trader.');
+    lines.push('Your trend.direction MUST match the Confluence Direction exactly.');
+    lines.push('Your risk.level MUST match the derived risk level above.');
+    lines.push('Use the supplementary indicator data below only for narrative color.');
+    lines.push('The key levels (support/resistance) should come from the stop-loss and take-profit prices above.');
+
+    return lines.join('\n');
+  }
+
+  /** Condensed indicator snapshot — supplementary context only */
+  private formatIndicatorsCondensed(ind: IndicatorResults): string {
+    const lines: string[] = ['## Supplementary Indicators (narrative context only)'];
+
+    if (ind.rsi) {
+      const values = Object.values(ind.rsi.values);
+      const lastRsi = values[values.length - 1];
+      lines.push(`RSI(${ind.rsi.period}): ${lastRsi?.toFixed(1) ?? 'N/A'}`);
+    }
+
+    if (ind.macd) {
+      const entries = Object.entries(ind.macd.values);
+      const lastMacd = entries[entries.length - 1]?.[1];
+      if (lastMacd) {
+        lines.push(`MACD: ${lastMacd.macd} / Signal: ${lastMacd.signal}`);
+      }
+    }
+
+    // Price vs MAs (context for levels)
+    const lastPrice = this.tickerStore.candleData().slice(-1)[0]?.close;
+    if (lastPrice && ind.sma20) {
+      const sma20Vals = Object.values(ind.sma20.values);
+      const sma20 = sma20Vals[sma20Vals.length - 1];
+      lines.push(`SMA20: ${sma20?.toFixed(2) ?? 'N/A'} (price ${lastPrice > (sma20 ?? 0) ? 'above' : 'below'})`);
+    }
+    if (lastPrice && ind.sma50) {
+      const sma50Vals = Object.values(ind.sma50.values);
+      const sma50 = sma50Vals[sma50Vals.length - 1];
+      lines.push(`SMA50: ${sma50?.toFixed(2) ?? 'N/A'} (price ${lastPrice > (sma50 ?? 0) ? 'above' : 'below'})`);
+    }
+
+    return lines.join('\n');
   }
 
   private formatIndicators(ind: IndicatorResults): string {

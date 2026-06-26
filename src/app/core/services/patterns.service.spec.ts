@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { Candle } from '../models/candle.model';
 import { DetectedPattern } from '../models/pattern.model';
+import spyData from '../../../../public/assets/sample-data/spy-6m.json';
 
 // Replicate pattern detector functions inline for pure-function testing
 // (avoids Angular DI complexity; tests the logic directly)
@@ -359,15 +360,15 @@ describe('Double Bottom detection', () => {
   function buildDoubleBottomSetup(): Candle[] {
     const candles: Candle[] = [];
     let price = 100;
-    // Prior downtrend
+    // Prior downtrend (lows stay above trough to ensure trough detection)
     for (let i = 0; i < 15; i++) {
       price -= 1;
       candles.push({
         time: i + 1,
-        open: price + 0.5, high: price + 1, low: price - 2, close: price, volume: 1_000_000,
+        open: price + 0.5, high: price + 1, low: price + 1, close: price, volume: 1_000_000,
       });
     }
-    // First trough at ~85
+    // First trough at ~85 (lower than all prior lows)
     const trough1 = 85;
     candles.push({ time: 16, open: 86, high: 87, low: trough1, close: 86, volume: 1000000 });
     // Rally ~5%
@@ -389,7 +390,7 @@ describe('Double Bottom detection', () => {
     return candles;
   }
 
-  it.skip('detects double bottom with proper setup', () => {
+  it('detects double bottom with proper setup', () => {
     const candles = buildDoubleBottomSetup();
     const result = detectDoubleBottom_local(candles, candles.length - 1);
     expect(result).not.toBeNull();
@@ -415,8 +416,8 @@ describe('Head and Shoulders detection', () => {
     candles.push({ time: 21, open: 117, high: 118, low: 115, close: 116, volume: 1200000 });
     // Decline to neckline
     for (let i = 0; i < 3; i++) { price = 116 - i * 1.5; candles.push({ time: 22 + i, open: price + 0.5, high: price + 1, low: price - 0.5, close: price, volume: 700000 }); }
-    // Rally to head (higher than LS)
-    for (let i = 0; i < 3; i++) { price = 112 + i * 2.5; candles.push({ time: 25 + i, open: price - 1, high: i === 2 ? 122 : price + 1, low: price - 1, close: price, volume: 1000000 }); }
+    // Rally to head (higher than LS — head peak is distinct at time 28)
+    for (let i = 0; i < 3; i++) { price = 112 + i * 2.5; candles.push({ time: 25 + i, open: price - 1, high: price + 1, low: price - 1, close: price, volume: 1000000 }); }
     // Head peak at ~122
     candles.push({ time: 28, open: 120, high: 122, low: 118, close: 119, volume: 900000 });
     // Decline back to neckline
@@ -430,7 +431,7 @@ describe('Head and Shoulders detection', () => {
     return candles;
   }
 
-  it.skip('detects head and shoulders pattern', () => {
+  it('detects head and shoulders pattern', () => {
     const candles = buildHSSetup();
     const result = detectHeadAndShoulders_local(candles, candles.length - 1);
     expect(result).not.toBeNull();
@@ -456,8 +457,8 @@ describe('Inverse Head and Shoulders detection', () => {
     candles.push({ time: 21, open: 83, high: 85, low: 82, close: 84, volume: 1200000 });
     // Rally
     for (let i = 0; i < 3; i++) { price = 84 + i * 1.5; candles.push({ time: 22 + i, open: price - 0.5, high: price + 0.5, low: price - 1, close: price, volume: 700000 }); }
-    // Decline to head (lower than LS)
-    for (let i = 0; i < 3; i++) { price = 88 - i * 2.5; candles.push({ time: 25 + i, open: price + 1, high: price + 1, low: i === 2 ? 78 : price - 1, close: price, volume: 1000000 }); }
+    // Decline to head (lower than LS — head trough is distinct at time 28)
+    for (let i = 0; i < 3; i++) { price = 88 - i * 2.5; candles.push({ time: 25 + i, open: price + 1, high: price + 1, low: price - 1, close: price, volume: 1000000 }); }
     // Head trough at ~78
     candles.push({ time: 28, open: 80, high: 82, low: 78, close: 81, volume: 900000 });
     // Rally back
@@ -471,7 +472,7 @@ describe('Inverse Head and Shoulders detection', () => {
     return candles;
   }
 
-  it.skip('detects inverse head and shoulders pattern', () => {
+  it('detects inverse head and shoulders pattern', () => {
     const candles = buildInvHSSetup();
     const result = detectInverseHeadAndShoulders_local(candles, candles.length - 1);
     expect(result).not.toBeNull();
@@ -479,6 +480,35 @@ describe('Inverse Head and Shoulders detection', () => {
       expect(result.type).toBe('inverse_head_and_shoulders');
       expect(result.sentiment).toBe('bullish');
     }
+  });
+});
+
+// ─── Real data validation (spy-6m.json) ────────────────────────────
+// SPY trades in a tight ~2.3% range over 6 months — no chart patterns
+// should be detected. This validates that detectors don't produce
+// false positives on real non-pattern data.
+
+describe('SPY negative validation (no false positives)', () => {
+  const candles = spyData as Candle[];
+
+  it('finds no double top in SPY data', () => {
+    const result = detectDoubleTop_local(candles, candles.length - 1);
+    expect(result).toBeNull();
+  });
+
+  it('finds no double bottom in SPY data', () => {
+    const result = detectDoubleBottom_local(candles, candles.length - 1);
+    expect(result).toBeNull();
+  });
+
+  it('finds no head and shoulders in SPY data', () => {
+    const result = detectHeadAndShoulders_local(candles, candles.length - 1);
+    expect(result).toBeNull();
+  });
+
+  it('finds no inverse head and shoulders in SPY data', () => {
+    const result = detectInverseHeadAndShoulders_local(candles, candles.length - 1);
+    expect(result).toBeNull();
   });
 });
 

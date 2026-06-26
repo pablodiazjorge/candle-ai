@@ -81,20 +81,30 @@ export class ConfluenceService {
       ? REGIME_BASE[regime.regime]
       : 0.50;
 
+    // Cache initial regime direction BEFORE any signal modifications.
+    // Prevents path-dependent labeling where signals change their
+    // own alignment context as pBullish updates mid-loop.
+    const initialRegimeIsBullish = pBullish >= 0.50;
+
     const regimeLabel = regime ? regime.regime.replace(/_/g, ' ') : 'unknown';
+    const hasRegime = regime !== null;
     contributions.push({
       signal: `Market Regime: ${regimeLabel}`,
       direction: pToDirection(pBullish),
       baseModifier: pBullish - 0.50,
       appliedModifier: pBullish - 0.50,
-      description: regime
-        ? `Base rate from regime classification (ADX=${regime.methods.adxValue.toFixed(0)}, SMA=${regime.methods.smaAlignment}, Structure=${regime.methods.structure})`
-        : 'No regime data — neutral base rate',
+      description: hasRegime
+        ? `Base rate from regime classification (ADX=${regime!.methods.adxValue.toFixed(0)}, SMA=${regime!.methods.smaAlignment}, Structure=${regime!.methods.structure})`
+        : 'No regime data — neutral base rate (50% bullish). All signals scored with neutral context.',
     });
 
     // ─── 2. Chart Patterns (Level 2 in hierarchy) ─────────────────
+    // Only score recent chart patterns (last 60 candles = ~3 months daily)
+    const CHART_LOOKBACK = 60;
+    const chartRecentTimestamps = new Set(candles.slice(-CHART_LOOKBACK).map((c) => c.time));
     const chartPatterns = patterns.filter((p) =>
-      ['double_top', 'double_bottom', 'head_and_shoulders', 'inverse_head_and_shoulders'].includes(p.type),
+      ['double_top', 'double_bottom', 'head_and_shoulders', 'inverse_head_and_shoulders'].includes(p.type) &&
+      chartRecentTimestamps.has(p.time),
     );
 
     for (const cp of chartPatterns) {
@@ -105,10 +115,9 @@ export class ConfluenceService {
       const sigDir = cp.sentiment === 'neutral' ? 'neutral' : cp.sentiment;
       const isAligned = sigDir === 'bullish';
 
-      // Determine if pattern aligns with regime
-      const regimeIsBullish = pBullish >= 0.50;
-      const regimeAligned = (sigDir === 'bullish' && regimeIsBullish) ||
-        (sigDir === 'bearish' && !regimeIsBullish);
+      // Determine if pattern aligns with INITIAL regime
+      const regimeAligned = (sigDir === 'bullish' && initialRegimeIsBullish) ||
+        (sigDir === 'bearish' && !initialRegimeIsBullish);
 
       const modifier = regimeAligned ? config.aligned : config.counter;
       const signedModifier = sigDir === 'bullish' ? modifier : sigDir === 'bearish' ? -modifier : 0;
@@ -121,15 +130,21 @@ export class ConfluenceService {
         direction: sigDir,
         baseModifier: signedModifier,
         appliedModifier: signedModifier,
-        description: regimeAligned
-          ? `${patternLabel} — regime-aligned, full weight`
-          : `${patternLabel} — counter-regime, reduced weight (×${(config.counter / config.aligned).toFixed(2)})`,
+        description: hasRegime
+          ? (regimeAligned
+            ? `${patternLabel} — regime-aligned, full weight`
+            : `${patternLabel} — counter-regime, reduced weight (×${(config.counter / config.aligned).toFixed(2)})`)
+          : `${patternLabel} — neutral context (no regime data)`,
       });
     }
 
     // ─── 3. Candlestick Patterns (Level 3 in hierarchy) ────────────
+    // Only score recent patterns (last 30 candles) to avoid noise
+    const RECENT_WINDOW = 30;
+    const recentTimestamps = new Set(candles.slice(-RECENT_WINDOW).map((c) => c.time));
     const candlePatterns = patterns.filter((p) =>
-      !['double_top', 'double_bottom', 'head_and_shoulders', 'inverse_head_and_shoulders'].includes(p.type),
+      !['double_top', 'double_bottom', 'head_and_shoulders', 'inverse_head_and_shoulders'].includes(p.type) &&
+      recentTimestamps.has(p.time),
     );
 
     for (const cp of candlePatterns) {
@@ -138,9 +153,8 @@ export class ConfluenceService {
       const config = tier === 'A' ? EVIDENCE.CANDLE_PATTERN_A : EVIDENCE.CANDLE_PATTERN_B;
 
       const sigDir = cp.sentiment === 'neutral' ? 'neutral' : cp.sentiment;
-      const regimeIsBullish = pBullish >= 0.50;
-      const regimeAligned = (sigDir === 'bullish' && regimeIsBullish) ||
-        (sigDir === 'bearish' && !regimeIsBullish);
+      const regimeAligned = (sigDir === 'bullish' && initialRegimeIsBullish) ||
+        (sigDir === 'bearish' && !initialRegimeIsBullish);
 
       const modifier = regimeAligned ? config.aligned : config.counter;
       const signedModifier = sigDir === 'bullish' ? modifier : sigDir === 'bearish' ? -modifier : 0;
@@ -153,9 +167,11 @@ export class ConfluenceService {
         direction: sigDir,
         baseModifier: signedModifier,
         appliedModifier: signedModifier,
-        description: regimeAligned
-          ? `${patternLabel} — regime-aligned`
-          : `${patternLabel} — counter-regime, reduced weight`,
+        description: hasRegime
+          ? (regimeAligned
+            ? `${patternLabel} — regime-aligned`
+            : `${patternLabel} — counter-regime, reduced weight`)
+          : `${patternLabel} — neutral context (no regime data)`,
       });
     }
 
@@ -164,9 +180,8 @@ export class ConfluenceService {
       const rsiDiv = detectRsiDivergence(indicators, candles);
       if (rsiDiv) {
         const config = EVIDENCE.RSI_DIVERGENCE;
-        const regimeIsBullish = pBullish >= 0.50;
-        const regimeAligned = (rsiDiv === 'bullish' && regimeIsBullish) ||
-          (rsiDiv === 'bearish' && !regimeIsBullish);
+        const regimeAligned = (rsiDiv === 'bullish' && initialRegimeIsBullish) ||
+          (rsiDiv === 'bearish' && !initialRegimeIsBullish);
         const modifier = regimeAligned ? config.aligned : config.counter;
         const signedModifier = rsiDiv === 'bullish' ? modifier : -modifier;
 
@@ -178,18 +193,19 @@ export class ConfluenceService {
           direction: rsiDiv,
           baseModifier: signedModifier,
           appliedModifier: signedModifier,
-          description: regimeAligned
-            ? 'Price-RSI divergence — regime-aligned'
-            : 'Price-RSI divergence — counter-regime',
+          description: hasRegime
+            ? (regimeAligned
+              ? 'Price-RSI divergence — regime-aligned'
+              : 'Price-RSI divergence — counter-regime')
+            : 'Price-RSI divergence — neutral context',
         });
       }
 
       const macdCross = detectMacdCrossover(indicators);
       if (macdCross) {
         const config = EVIDENCE.MACD_CROSSOVER;
-        const regimeIsBullish = pBullish >= 0.50;
-        const regimeAligned = (macdCross === 'bullish' && regimeIsBullish) ||
-          (macdCross === 'bearish' && !regimeIsBullish);
+        const regimeAligned = (macdCross === 'bullish' && initialRegimeIsBullish) ||
+          (macdCross === 'bearish' && !initialRegimeIsBullish);
         const modifier = regimeAligned ? config.aligned : config.counter;
         const signedModifier = macdCross === 'bullish' ? modifier : -modifier;
 
@@ -201,9 +217,11 @@ export class ConfluenceService {
           direction: macdCross,
           baseModifier: signedModifier,
           appliedModifier: signedModifier,
-          description: regimeAligned
-            ? 'MACD line crossed signal — regime-aligned'
-            : 'MACD line crossed signal — counter-regime',
+          description: hasRegime
+            ? (regimeAligned
+              ? 'MACD line crossed signal — regime-aligned'
+              : 'MACD line crossed signal — counter-regime')
+            : 'MACD crossover — neutral context',
         });
       }
     }
@@ -246,17 +264,22 @@ export class ConfluenceService {
     // ─── 7. Clamp ─────────────────────────────────────────────────
     pBullish = clamp(pBullish, 0.05, 0.95);
 
-    // ─── 8. Compute Tier ──────────────────────────────────────────
+    // ─── 8. Filter zero-impact signals ─────────────────────────────
+    // Remove signals with 0 appliedModifier (e.g., Doji D grade)
+    // — they contribute nothing but clutter the UI
+    const filtered = contributions.filter((s) => s.appliedModifier !== 0);
+
+    // ─── 9. Compute Tier ──────────────────────────────────────────
     const { direction, tier } = computeTier(pBullish);
 
-    // ─── 9. Risk Parameters ───────────────────────────────────────
+    // ─── 10. Risk Parameters ──────────────────────────────────────
     const riskParams = this.computeRiskParams(candles, direction, tier, accountSize);
 
     return {
       direction,
       tier,
       probability: pBullish,
-      contributingSignals: contributions,
+      contributingSignals: filtered,
       riskParams,
       overridesApplied: overrides,
     };
@@ -288,14 +311,14 @@ export class ConfluenceService {
     }
 
     // 0DTE Gamma Override: M/W/F intraday patterns downgraded
+    // Only applies to sub-daily timeframes (daily/weekly skip this)
     const dow = new Date().getUTCDay(); // 1=Mon, 3=Wed, 5=Fri
     if (dow === 1 || dow === 3 || dow === 5) {
-      // Check if we're looking at intraday data
       if (candles.length >= 2) {
         const intervalMs = (candles[1].time - candles[0].time) * 1000;
         const hours = intervalMs / (1000 * 60 * 60);
-        if (hours < 24) {
-          // Intraday on 0DTE day — shift toward neutral
+        // Skip for daily (24h) and weekly (168h) data
+        if (hours > 0 && hours < 24) {
           pBullish = pBullish * 0.7 + 0.50 * 0.3;
           overrides.push('0DTE Gamma: intraday signals neutralized (M/W/F)');
         }
@@ -328,29 +351,34 @@ export class ConfluenceService {
     let stopLoss: number | null = null;
     let takeProfit: number | null = null;
 
+    const minRR = tier === 'HIGH' ? 2 : tier === 'MEDIUM' ? 3 : 1.5;
+
     if (direction === 'bullish') {
-      // Find recent swing low for stop-loss
       stopLoss = findSwingLow(candles, 10);
-      // Target based on risk-reward
       if (stopLoss && stopLoss < entry) {
-        const risk = entry - stopLoss;
-        const minRR = tier === 'HIGH' ? 2 : tier === 'MEDIUM' ? 3 : 1.5;
+        // Cap risk at 20% of entry to avoid absurd stops from synthetic data
+        const risk = Math.min(entry - stopLoss, entry * 0.20);
         takeProfit = entry + risk * minRR;
+        stopLoss = entry - risk;
       }
     } else if (direction === 'bearish') {
-      // Find recent swing high for stop-loss
       stopLoss = findSwingHigh(candles, 10);
       if (stopLoss && stopLoss > entry) {
-        const risk = stopLoss - entry;
-        const minRR = tier === 'HIGH' ? 2 : tier === 'MEDIUM' ? 3 : 1.5;
+        // Cap risk at 20% of entry to avoid absurd stops from synthetic data
+        const risk = Math.min(stopLoss - entry, entry * 0.20);
         takeProfit = entry - risk * minRR;
+        stopLoss = entry + risk;
       }
     }
 
-    const rr = stopLoss && entry
-      ? (direction === 'bullish'
-        ? (takeProfit! - entry) / (entry - stopLoss)
-        : (entry - takeProfit!) / (stopLoss - entry))
+    // Ensure take-profit is always a positive absolute price
+    if (takeProfit !== null && takeProfit <= 0) {
+      takeProfit = null;
+    }
+
+    // R:R = risk * minRR / risk = minRR (exact, no floating-point subtraction)
+    const rr = (stopLoss && entry && takeProfit)
+      ? minRR
       : null;
 
     const positionSize = accountSize && stopLoss && entry

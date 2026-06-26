@@ -50,24 +50,40 @@
     <div class="dashboard-body">
       <!-- ─── Confluence Engine (deterministic, no LLM needed) ─────────────── -->
       @if (confluence; as c) {
+        <!-- Epic 8 Track A: Weekly context badge -->
+        @if (weeklyConfluence; as wc) {
+          <div class="weekly-context-badge" [class]="directionClass(wc.direction)">
+            <span class="weekly-label">Weekly</span>
+            <span class="weekly-tier">{{ 'confluence.tier.' + wc.tier.toLowerCase() | translate }}</span>
+            <span class="weekly-dir">{{ 'analysis.' + wc.direction | translate }}</span>
+          </div>
+        }
         <section class="analysis-section confluence-section">
           <div class="confluence-header">
-            <h3 class="section-title">Confluence Score</h3>
+            <h3 class="section-title">{{ 'confluence.title' | translate }}</h3>
             <span class="confluence-badge" [class]="tierClass(c.tier)">
-              {{ c.tier }} — {{ c.direction }}
+              {{ 'confluence.tier.' + c.tier.toLowerCase() | translate }} — {{ 'analysis.' + c.direction | translate }}
             </span>
           </div>
 
           <!-- Probability bar -->
           <div class="confluence-bar">
             <div class="confluence-fill" [style.width.%]="c.probability * 100" [class]="directionClass(c.direction)"></div>
-            <span class="confluence-pct">{{ (c.probability * 100) | number:'1.0-0' }}% bullish</span>
+            <span class="confluence-pct">
+              @if (c.direction === 'bullish') {
+                {{ (c.probability * 100) | number:'1.0-0' }}% {{ 'analysis.bullish' | translate }}
+              } @else if (c.direction === 'bearish') {
+                {{ ((1 - c.probability) * 100) | number:'1.0-0' }}% {{ 'analysis.bearish' | translate }}
+              } @else {
+                {{ (c.probability * 100) | number:'1.0-0' }}% {{ 'analysis.neutral' | translate }}
+              }
+            </span>
           </div>
 
           <!-- Contributing signals -->
           <div class="signals-toggle">
             <button class="btn-signals-toggle" (click)="toggleSignals()">
-              {{ c.contributingSignals.length }} signals
+              {{ c.contributingSignals.length }} {{ 'confluence.signals' | translate }}
               <i class="ph-bold" [class.ph-caret-down]="!showContributingSignals()" [class.ph-caret-up]="showContributingSignals()"></i>
             </button>
           </div>
@@ -89,25 +105,25 @@
           @if (c.riskParams.stopLoss) {
             <div class="risk-params">
               <div class="risk-param">
-                <span class="rp-label">Stop-Loss</span>
+                <span class="rp-label">{{ 'confluence.stopLoss' | translate }}</span>
                 <span class="rp-value">{{ c.riskParams.stopLoss | currency }}</span>
               </div>
               @if (c.riskParams.takeProfit) {
                 <div class="risk-param">
-                  <span class="rp-label">Take-Profit</span>
+                  <span class="rp-label">{{ 'confluence.takeProfit' | translate }}</span>
                   <span class="rp-value">{{ c.riskParams.takeProfit | currency }}</span>
                 </div>
               }
               @if (c.riskParams.riskRewardRatio) {
                 <div class="risk-param">
-                  <span class="rp-label">R:R</span>
+                  <span class="rp-label">{{ 'confluence.riskReward' | translate }}</span>
                   <span class="rp-value">1:{{ c.riskParams.riskRewardRatio | number:'1.1-1' }}</span>
                 </div>
               }
               @if (c.riskParams.positionSize) {
                 <div class="risk-param">
-                  <span class="rp-label">Size</span>
-                  <span class="rp-value">{{ c.riskParams.positionSize }} sh</span>
+                  <span class="rp-label">{{ 'confluence.positionSize' | translate }}</span>
+                  <span class="rp-value">{{ c.riskParams.positionSize }} {{ 'confluence.shares' | translate }}</span>
                 </div>
               }
             </div>
@@ -193,6 +209,104 @@
           <p class="analysis-meta">
             {{ 'analysis.generated' | translate }} {{ a.generatedAt | date:'medium' }}
           </p>
+        </section>
+      }
+
+      <!-- ─── Epic 8 Track C: Analysis History Comparison ────────────────── -->
+      @if (showHistory() && previousAnalysis(); as prev) {
+        <section class="analysis-section history-section">
+          <h3 class="section-title">Previous Analysis</h3>
+          <div class="history-card">
+            <div class="history-meta">
+              {{ prev.timestamp | date:'mediumDate' }}
+            </div>
+            <div class="history-deltas">
+              @if (confluence; as c) {
+                <div class="history-delta">
+                  <span class="delta-label">Tier</span>
+                  <span class="delta-values">
+                    <span class="delta-old">{{ 'confluence.tier.' + prev.confluence.tier.toLowerCase() | translate }}</span>
+                    <span class="delta-arrow">→</span>
+                    <span class="delta-new" [class]="tierDeltaClass(prev.confluence.tier, c.tier)">
+                      {{ 'confluence.tier.' + c.tier.toLowerCase() | translate }}
+                    </span>
+                  </span>
+                </div>
+                <div class="history-delta">
+                  <span class="delta-label">Direction</span>
+                  <span class="delta-values">
+                    <span class="delta-old">{{ 'analysis.' + prev.confluence.direction | translate }}</span>
+                    <span class="delta-arrow">→</span>
+                    <span class="delta-new" [class]="prev.confluence.direction !== c.direction ? (c.direction === 'bullish' ? 'positive' : 'negative') : 'neutral'">
+                      {{ 'analysis.' + c.direction | translate }}
+                    </span>
+                  </span>
+                </div>
+                <div class="history-delta">
+                  <span class="delta-label">Probability</span>
+                  <span class="delta-values">
+                    <span class="delta-old">{{ (prev.confluence.probability * 100) | number:'1.0-0' }}%</span>
+                    <span class="delta-arrow">→</span>
+                    <span class="delta-new" [class]="c.probability > prev.confluence.probability ? 'positive' : 'negative'">
+                      {{ (c.probability * 100) | number:'1.0-0' }}%
+                    </span>
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- ─── Epic 8 Track B: Interactive Follow-up Chat ─────────────────── -->
+      @if (isConfigured && (confluence || analysis)) {
+        <section class="analysis-section follow-up-section">
+          <h3 class="section-title">Follow-up Questions</h3>
+
+          @if (followUpHistory().length > 0) {
+            <div class="chat-bubbles">
+              @for (msg of followUpHistory(); track msg.content) {
+                <div class="chat-bubble" [class.chat-user]="msg.role === 'user'" [class.chat-assistant]="msg.role === 'assistant'">
+                  <span class="chat-role">{{ msg.role === 'user' ? 'You' : 'AI' }}</span>
+                  <p class="chat-content">{{ msg.content }}</p>
+                </div>
+              }
+            </div>
+          }
+
+          @if (followUpError()) {
+            <div class="follow-up-error">⚠️ {{ followUpError() }}</div>
+          }
+
+          <div class="chat-input-row">
+            <input
+              type="text"
+              class="chat-input"
+              [value]="followUpQuestion()"
+              (input)="followUpQuestion.set($any($event.target).value)"
+              (keydown.enter)="askFollowUp()"
+              placeholder="Ask about this analysis..."
+              [disabled]="!canAskFollowUp()"
+              aria-label="Follow-up question"
+            />
+            <button
+              class="btn-chat-send"
+              (click)="askFollowUp()"
+              [disabled]="!canAskFollowUp() || followUpQuestion().trim() === ''"
+            >
+              @if (followUpLoading()) {
+                <span class="spinner" aria-hidden="true"></span>
+              } @else {
+                Send
+              }
+            </button>
+            @if (followUpHistory().length > 0) {
+              <button class="btn-chat-clear" (click)="clearChat()">Clear</button>
+            }
+          </div>
+          @if (followUpHistory().length >= 10) {
+            <div class="chat-limit">Max messages reached. Clear chat to continue.</div>
+          }
         </section>
       }
 

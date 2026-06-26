@@ -41,6 +41,12 @@ export class TickerStore {
   readonly regime = signal<RegimeResult | null>(null);
   readonly confluence = signal<ConfluenceResult | null>(null);
   readonly analysis = signal<AnalysisResult | null>(initialState.analysis);
+
+  // ── Epic 8 Track A: Multi-timeframe weekly context ──
+  readonly weeklyCandleData = signal<Candle[]>([]);
+  readonly weeklyRegime = signal<RegimeResult | null>(null);
+  readonly weeklyConfluence = signal<ConfluenceResult | null>(null);
+  readonly hasWeeklyContext = computed(() => this.weeklyCandleData().length > 0);
   readonly watchlist = signal<string[]>(initialState.watchlist);
   readonly activeIndicators = signal<IndicatorSettings>(initialState.activeIndicators);
   /** Set of pattern types currently visible on the chart */
@@ -74,6 +80,9 @@ export class TickerStore {
     this.regime.set(null);
     this.confluence.set(null);
     this.analysis.set(null);
+    this.weeklyCandleData.set([]);
+    this.weeklyRegime.set(null);
+    this.weeklyConfluence.set(null);
   }
 
   setTimeframe(tf: Timeframe): void {
@@ -113,6 +122,18 @@ export class TickerStore {
 
   setAnalysis(a: AnalysisResult): void {
     this.analysis.set(a);
+  }
+
+  setWeeklyCandleData(data: Candle[]): void {
+    this.weeklyCandleData.set(data);
+  }
+
+  setWeeklyRegime(r: RegimeResult | null): void {
+    this.weeklyRegime.set(r);
+  }
+
+  setWeeklyConfluence(c: ConfluenceResult | null): void {
+    this.weeklyConfluence.set(c);
   }
 
   toggleIndicator(key: keyof IndicatorSettings): void {
@@ -184,7 +205,11 @@ export class TickerStore {
     this.activeIndicators.set(DEFAULT_INDICATOR_SETTINGS);
     this.patterns.set([]);
     this.regime.set(null);
+    this.confluence.set(null);
     this.analysis.set(null);
+    this.weeklyCandleData.set([]);
+    this.weeklyRegime.set(null);
+    this.weeklyConfluence.set(null);
   }
 }
 
