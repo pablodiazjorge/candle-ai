@@ -27,9 +27,11 @@ Browser
 |  +--------------------------+  +------------------------------+  |
 |  | Web Worker               |  | Main Thread                  |  |
 |  | (indicators.worker.ts)   |  |                              |  |
-|  | - RSI, MACD, BB          |  |  Lightweight Charts          |  |
-  |  | - SMA, EMA               |  |  Angular Components          |  |
-  |  | - Volume Profile         |  |  Signal-based State          |  |
+|  | - RSI, MACD, BB, ADX     |  |  Lightweight Charts          |  |
+|  | - SMA, EMA, Volume       |  |  Angular Components          |  |
+|  | - Volume Profile         |  |  Signal-based State          |  |
+|  | - Regime Detection       |  |  Confluence Engine           |  |
+|  | - Volume Signals         |  |  (deterministic scoring)     |  |
   |  |                          |  |                              |  |
 |  +--------------------------+  +------------------------------+  |
 |                                                                 |
@@ -47,6 +49,9 @@ Browser
 |  /api/yahoo proxy)        |  |  OpenAI, Groq, etc.)         |
 | Fallback: synthetic       |  |                              |
 +--------------------------+  +------------------------------+
+
+Note: The Confluence Engine runs entirely client-side — no LLM required.
+The LLM is now a narrative layer over deterministic scoring output.
 ```
 
 ---
@@ -70,8 +75,9 @@ dependency. Change detection is zoneless and signal-driven.
 
 **Principle 4: Progressive enhancement.**
 The app works with synthetic data when Yahoo Finance is unreachable.
-The LLM analysis is optional — indicators and patterns work without it.
-Every feature degrades gracefully.
+The Confluence Engine provides deterministic confidence tiers offline.
+The LLM analysis is optional — indicators, patterns, and confluence work
+without it. Every feature degrades gracefully.
 
 **Principle 5: Local-first.**
 The default LLM preset is Ollama, which runs on the user's hardware. Cloud
@@ -447,9 +453,10 @@ paramount.
 
 **Consequences.**
 Rule-based detectors produce false positives on noisy data. The confidence score
-system mitigates this by grading pattern quality. Some complex chart patterns
-(Head & Shoulders, Cup & Handle) are planned but not yet implemented because
-their rule-based criteria are more complex to encode than candlestick patterns.
+system mitigates this by grading pattern quality. Four chart patterns (Double
+Top/Bottom, Head & Shoulders, Inverse H&S) are implemented. Remaining chart
+patterns (Cup & Handle, Rounding Bottom/Top, Bump & Run) are lower priority
+per 2026 reliability data.
 
 ---
 
@@ -483,11 +490,12 @@ determines the starting point. The model is explainable: every confidence tier
 can be traced back to which signals contributed how much.
 
 **Consequences.**
-The probabilistic model is a specification, not yet implemented. It requires
-careful calibration of base rates and signal modification values. The values in
-the analytical framework are initial estimates based on academic literature
-(Bulkowski win rates, Nison reliability grades); they should be adjusted as
-usage data accumulates.
+The confluence model is implemented in `ConfluenceService` (Epic 7). Base rates
+and signal modification values follow analytical-framework.md Section 5.
+The model runs entirely client-side — no LLM required. The LLM's role shifted
+from primary analyst to narrative layer (Epic 8). Calibration values are
+initial estimates from academic literature; they should be adjusted as usage
+data accumulates.
 
 ---
 

@@ -78,9 +78,9 @@ The default preset already points to `http://localhost:11434/v1` with
 ```
 src/app/
 ├── core/
-│   ├── models/          # Candle, Indicator, Pattern, AnalysisResult (TypeScript interfaces)
-│   ├── services/        # market-data, indicators, patterns, analysis, pine-script
-│   ├── workers/         # Web Worker for indicator calculations
+│   ├── models/          # Candle, Indicator, Pattern, Analysis, Confluence
+│   ├── services/        # market-data, indicators, patterns, grading, confluence, analysis, pine-script
+│   ├── workers/         # Web Worker (RSI, MACD, BB, ADX, regime, volume)
 │   ├── llm/             # Multi-provider LLM client (OpenAI-compatible)
 │   └── state/           # Signal-based stores (ticker, cache, LLM settings)
 ├── features/
@@ -117,13 +117,19 @@ All calculations run off the main thread:
 | Bollinger Bands | 20, 2 | Upper/middle/lower bands with fill |
 | SMA | 20, 50, 200 | Overlay lines |
 | EMA | 9, 21 | Overlay lines |
-| Volume Profile | Auto | POC + Value Area (commented in Pine Script export) |
+| ADX | 14 periods | Trend strength (feeds regime detection) |
+| Volume Profile | Auto | POC + Value Area |
+| Volume Climax | 250% threshold | Extreme volume spikes |
+| Volume Dry-Up | 50% threshold | Unusually low volume |
+| Volume Divergence | Auto | Price vs volume direction mismatch |
 
-### Candlestick Patterns
+### Pattern Detection
 
-11 patterns detected via rule-based analysis (no external library).
-A selection modal (📍 button) lets you pick which pattern types to display
-as markers on the chart.
+15 patterns detected via rule-based analysis (no external library).
+Each pattern receives a quality grade (A-D) from the `GradingService`
+using 6 objective criteria. A selection modal (📍) controls chart markers.
+
+**Candlestick Patterns (11)**
 
 | Sentiment | Patterns |
 |-----------|----------|
@@ -131,16 +137,32 @@ as markers on the chart.
 | 🔴 Bearish | Shooting Star, Bearish Engulfing, Evening Star, Bearish Harami, Three Black Crows |
 | 🟡 Neutral | Doji |
 
-### AI Analysis
+**Chart Patterns (4)**
 
-The LLM receives:
-- Ticker, timeframe, current price, period change
-- Active indicator values (latest data points)
-- Detected candlestick patterns with sentiment
+| Sentiment | Patterns |
+|-----------|----------|
+| 🟢 Bullish | Double Bottom, Inverse Head & Shoulders |
+| 🔴 Bearish | Double Top, Head & Shoulders |
 
-It returns structured JSON with five sections: **Trend**, **Key Levels**
-(support/resistance), **Signals** (buy/sell/neutral per indicator), **Risk**
-(score 0-100 + description), and a natural-language **Summary**.
+### Confluence Engine (Epic 7 — Offline-First)
+
+A **deterministic probabilistic scoring model** that runs entirely
+client-side — no LLM required. Provides confidence tiers:
+`HIGH` / `MEDIUM` / `LOW` / `NEUTRAL`.
+
+- **Base rate** from market regime (Strong Uptrend → Ranging → Strong Downtrend)
+- **Evidence modification** from graded patterns (A/B), RSI divergence, MACD crossover
+- **Volume multiplier** (×1.2 confirm, ×0.7 contradict)
+- **2026 overrides**: passive flow ×1.1 (mega-caps), 0DTE gamma neutralization (M/W/F)
+- **Risk parameters**: stop-loss from market structure, R:R enforcement (1:2 HIGH, 1:3 MEDIUM), position sizing
+- **100% traceable**: expand the signals list to see exact per-signal contributions
+
+### AI Analysis (LLM — Narrative Layer)
+
+The LLM acts as a **qualitative explainer** over the confluence output:
+- Receives confidence tier + contributing signals + regime + patterns
+- Returns structured JSON: **Trend**, **Key Levels**, **Signals**, **Risk**, **Summary**
+- The LLM cannot override the confluence tier; it explains it
 
 ### Pine Script v5 Export
 
@@ -207,9 +229,11 @@ User selects ticker
     → TickerStore.setCandleData()
   → IndicatorsService.computeIndicators() (Web Worker)
     → TickerStore.setIndicators()
-  → PatternsService.detectAll()
-    → TickerStore.setPatterns()
-  → User clicks "Run Analysis"
+  → PatternsService.detectAll() + detectChartPatterns()
+    → GradingService.gradeAll() → TickerStore.setPatterns()
+  → ConfluenceService.score() → TickerStore.setConfluence()
+  → Confluence result shown immediately (no LLM needed)
+  → User clicks "Run Analysis" (optional LLM narrative)
     → AnalysisService.runAnalysis()
       → LlmProvider.complete(systemPrompt, userPrompt)
       → parseResponse() → TickerStore.setAnalysis()
@@ -227,7 +251,7 @@ ng build --configuration production
 ## Tests
 
 ```bash
-npm run test:unit          # Vitest (42 tests)
+npm run test:unit          # Vitest (87 tests)
 npm run test:unit:watch    # Watch mode
 npm run test:coverage      # With coverage report
 ```
@@ -244,11 +268,11 @@ The `.github/skills/` directory and `.github/instructions/default.instructions.m
 
 ## Documentation
 
-- [docs/architecture.md](docs/architecture.md) — Full architectural decision record (13 ADRs, system context, data flow, security)
+- [docs/architecture.md](docs/architecture.md) — Full architectural decision record (13 ADRs, system context, confluence engine, data flow, security)
 - [docs/analytical-framework.md](docs/analytical-framework.md) — Analysis methodology: market regime classification, three-pillar signal hierarchy, probabilistic confluence model, risk integration, AI role
 - [docs/classical-patterns.md](docs/classical-patterns.md) — Canonical reference for 30+ technical analysis patterns: recognition criteria, market psychology, statistical edge, reliability grading, combination matrix
 - [docs/classical-patterns-2026.md](docs/classical-patterns-2026.md) — Modern market adaptations: how algo trading, 0DTE options, passive flows, and market fragmentation change pattern reliability in 2026
-- [docs/development-roadmap.md](docs/development-roadmap.md) — Complete development progression: 5 completed epics with git history, 3 planned epics with deliverables and motivations
+- [docs/development-roadmap.md](docs/development-roadmap.md) — Complete development progression: 6 completed epics, 1 in-progress, 1 planned
 - [prompt-forge](https://github.com/pablodiazjorge/prompt-forge) — Agentic skills infrastructure used in this project
 
 ---
