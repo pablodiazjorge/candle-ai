@@ -410,3 +410,168 @@
   margin: 0;
   line-height: 1.5;
 }
+
+/* ─── Confluence Engine (Epic 7) ─────────────────────────────────── */
+
+.confluence-section {
+  background: color-mix(in srgb, var(--color-text-secondary) 3%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.confluence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.confluence-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.confluence-badge.tier-high {
+  background: color-mix(in srgb, #22c55e 20%, transparent);
+  color: #22c55e;
+  border: 1px solid color-mix(in srgb, #22c55e 40%, transparent);
+}
+
+.confluence-badge.tier-medium {
+  background: color-mix(in srgb, #3b82f6 20%, transparent);
+  color: #3b82f6;
+  border: 1px solid color-mix(in srgb, #3b82f6 40%, transparent);
+}
+
+.confluence-badge.tier-low {
+  background: color-mix(in srgb, #f59e0b 20%, transparent);
+  color: #f59e0b;
+  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+}
+
+.confluence-badge.tier-neutral {
+  background: color-mix(in srgb, #6b7280 20%, transparent);
+  color: #9ca3af;
+  border: 1px solid color-mix(in srgb, #6b7280 40%, transparent);
+}
+
+/* Probability bar */
+.confluence-bar {
+  position: relative;
+  height: 20px;
+  background: var(--color-bg-tertiary);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.confluence-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.6s ease;
+}
+
+.confluence-fill.positive { background: linear-gradient(90deg, #22c55e99, #22c55e); }
+.confluence-fill.negative { background: linear-gradient(90deg, #ef4444, #ef444499); }
+.confluence-fill.neutral { background: linear-gradient(90deg, #6b7280, #9ca3af); }
+
+.confluence-pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Signals toggle */
+.signals-toggle {
+  margin-bottom: 6px;
+}
+
+.btn-signals-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.8;
+}
+
+.btn-signals-toggle:hover {
+  opacity: 1;
+  color: var(--color-text-primary);
+}
+
+/* Signal item modifiers */
+.signal-mod {
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
+.signal-mod.positive { color: #22c55e; }
+.signal-mod.negative { color: #ef4444; }
+
+/* Risk params grid */
+.risk-params {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.risk-param {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Override tags */
+.overrides-applied {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.override-tag {
+  font-size: 10px;
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

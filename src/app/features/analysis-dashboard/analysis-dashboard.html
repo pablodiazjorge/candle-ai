@@ -46,81 +46,163 @@
   }
 
   <!-- Body -->
-  @if (isOpen() && analysis; as a) {
+  @if (isOpen()) {
     <div class="dashboard-body">
-      <!-- Trend -->
-      <section class="analysis-section">
-        <h3 class="section-title">{{ 'analysis.trend' | translate }}</h3>
-        <div class="trend-badge" [class]="sentimentClass(a.trend.direction)">
-          {{ 'analysis.' + a.trend.direction | translate }}
-          <span class="trend-strength">({{ 'analysis.' + a.trend.strength | translate }})</span>
-        </div>
-        <p class="section-desc">{{ a.trend.description }}</p>
-      </section>
+      <!-- ─── Confluence Engine (deterministic, no LLM needed) ─────────────── -->
+      @if (confluence; as c) {
+        <section class="analysis-section confluence-section">
+          <div class="confluence-header">
+            <h3 class="section-title">Confluence Score</h3>
+            <span class="confluence-badge" [class]="tierClass(c.tier)">
+              {{ c.tier }} — {{ c.direction }}
+            </span>
+          </div>
 
-      <!-- Levels -->
-      @if (a.levels.length > 0) {
-        <section class="analysis-section">
-          <h3 class="section-title">{{ 'analysis.levels' | translate }}</h3>
-          <div class="levels-grid">
-            @for (level of a.levels; track level.price + level.type) {
-              <div class="level-card" [class]="level.type">
-                <div class="level-header">
-                  <span class="level-type">{{ level.type === 'resistance' ? ('analysis.resistance' | translate) : ('analysis.support' | translate) }}</span>
-                  <span class="level-strength">{{ 'analysis.' + level.strength | translate }}</span>
+          <!-- Probability bar -->
+          <div class="confluence-bar">
+            <div class="confluence-fill" [style.width.%]="c.probability * 100" [class]="directionClass(c.direction)"></div>
+            <span class="confluence-pct">{{ (c.probability * 100) | number:'1.0-0' }}% bullish</span>
+          </div>
+
+          <!-- Contributing signals -->
+          <div class="signals-toggle">
+            <button class="btn-signals-toggle" (click)="toggleSignals()">
+              {{ c.contributingSignals.length }} signals
+              <i class="ph-bold" [class.ph-caret-down]="!showContributingSignals()" [class.ph-caret-up]="showContributingSignals()"></i>
+            </button>
+          </div>
+          @if (showContributingSignals()) {
+            <div class="signals-list confluence-signals">
+              @for (s of c.contributingSignals; track s.signal) {
+                <div class="signal-item" [class]="directionClass(s.direction)">
+                  <span class="signal-indicator">{{ s.signal }}</span>
+                  <span class="signal-mod" [class.positive]="s.appliedModifier > 0" [class.negative]="s.appliedModifier < 0">
+                    {{ s.appliedModifier > 0 ? '+' : '' }}{{ (s.appliedModifier * 100) | number:'1.0-0' }}%
+                  </span>
+                  <span class="signal-desc">{{ s.description }}</span>
                 </div>
-                <span class="level-price">{{ level.price | currency }}</span>
-                <span class="level-desc">{{ level.description }}</span>
+              }
+            </div>
+          }
+
+          <!-- Risk parameters -->
+          @if (c.riskParams.stopLoss) {
+            <div class="risk-params">
+              <div class="risk-param">
+                <span class="rp-label">Stop-Loss</span>
+                <span class="rp-value">{{ c.riskParams.stopLoss | currency }}</span>
               </div>
-            }
-          </div>
+              @if (c.riskParams.takeProfit) {
+                <div class="risk-param">
+                  <span class="rp-label">Take-Profit</span>
+                  <span class="rp-value">{{ c.riskParams.takeProfit | currency }}</span>
+                </div>
+              }
+              @if (c.riskParams.riskRewardRatio) {
+                <div class="risk-param">
+                  <span class="rp-label">R:R</span>
+                  <span class="rp-value">1:{{ c.riskParams.riskRewardRatio | number:'1.1-1' }}</span>
+                </div>
+              }
+              @if (c.riskParams.positionSize) {
+                <div class="risk-param">
+                  <span class="rp-label">Size</span>
+                  <span class="rp-value">{{ c.riskParams.positionSize }} sh</span>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- 2026 overrides applied -->
+          @if (c.overridesApplied.length > 0) {
+            <div class="overrides-applied">
+              @for (o of c.overridesApplied; track o) {
+                <span class="override-tag">⚡ {{ o }}</span>
+              }
+            </div>
+          }
         </section>
       }
 
-      <!-- Signals -->
-      @if (a.signals.length > 0) {
+      <!-- ─── LLM Analysis (secondary — narrative layer) ──────────────────── -->
+      @if (analysis; as a) {
+        <!-- Trend -->
         <section class="analysis-section">
-          <h3 class="section-title">{{ 'analysis.signals' | translate }}</h3>
-          <div class="signals-list">
-            @for (signal of a.signals; track signal.indicator + signal.signal) {
-              <div class="signal-item" [class]="sentimentClass(signal.signal)">
-                <span class="signal-indicator">{{ signal.indicator }}</span>
-                <span class="signal-badge">{{ 'analysis.' + signal.signal | translate }}</span>
-                <span class="signal-desc">{{ signal.description }}</span>
-              </div>
-            }
+          <h3 class="section-title">{{ 'analysis.trend' | translate }}</h3>
+          <div class="trend-badge" [class]="sentimentClass(a.trend.direction)">
+            {{ 'analysis.' + a.trend.direction | translate }}
+            <span class="trend-strength">({{ 'analysis.' + a.trend.strength | translate }})</span>
           </div>
+          <p class="section-desc">{{ a.trend.description }}</p>
+        </section>
+
+        <!-- Levels -->
+        @if (a.levels.length > 0) {
+          <section class="analysis-section">
+            <h3 class="section-title">{{ 'analysis.levels' | translate }}</h3>
+            <div class="levels-grid">
+              @for (level of a.levels; track level.price + level.type) {
+                <div class="level-card" [class]="level.type">
+                  <div class="level-header">
+                    <span class="level-type">{{ level.type === 'resistance' ? ('analysis.resistance' | translate) : ('analysis.support' | translate) }}</span>
+                    <span class="level-strength">{{ 'analysis.' + level.strength | translate }}</span>
+                  </div>
+                  <span class="level-price">{{ level.price | currency }}</span>
+                  <span class="level-desc">{{ level.description }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- Signals -->
+        @if (a.signals.length > 0) {
+          <section class="analysis-section">
+            <h3 class="section-title">{{ 'analysis.signals' | translate }}</h3>
+            <div class="signals-list">
+              @for (signal of a.signals; track signal.indicator + signal.signal) {
+                <div class="signal-item" [class]="sentimentClass(signal.signal)">
+                  <span class="signal-indicator">{{ signal.indicator }}</span>
+                  <span class="signal-badge">{{ 'analysis.' + signal.signal | translate }}</span>
+                  <span class="signal-desc">{{ signal.description }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- Risk -->
+        <section class="analysis-section">
+          <h3 class="section-title">{{ 'analysis.risk' | translate }}</h3>
+          <div class="risk-bar">
+            <div class="risk-level" [class]="riskClass(a.risk.level)">
+              {{ 'analysis.' + a.risk.level | translate }}
+            </div>
+            <div class="risk-score-bar">
+              <div class="risk-score-fill" [style.width.%]="a.risk.score" [class]="riskClass(a.risk.level)"></div>
+            </div>
+            <span class="risk-score">{{ a.risk.score }}/100</span>
+          </div>
+          <p class="section-desc">{{ a.risk.description }}</p>
+        </section>
+
+        <!-- Summary -->
+        <section class="analysis-section summary-section">
+          <h3 class="section-title">{{ 'analysis.summary' | translate }}</h3>
+          <p class="summary-text">{{ a.summary }}</p>
+          <p class="analysis-meta">
+            {{ 'analysis.generated' | translate }} {{ a.generatedAt | date:'medium' }}
+          </p>
         </section>
       }
 
-      <!-- Risk -->
-      <section class="analysis-section">
-        <h3 class="section-title">{{ 'analysis.risk' | translate }}</h3>
-        <div class="risk-bar">
-          <div class="risk-level" [class]="riskClass(a.risk.level)">
-            {{ 'analysis.' + a.risk.level | translate }}
-          </div>
-          <div class="risk-score-bar">
-            <div class="risk-score-fill" [style.width.%]="a.risk.score" [class]="riskClass(a.risk.level)"></div>
-          </div>
-          <span class="risk-score">{{ a.risk.score }}/100</span>
+      <!-- Empty state -->
+      @if (!confluence && !analysis && !isAnalyzing && store.hasTicker()) {
+        <div class="dashboard-empty" role="region" aria-label="Analysis empty state">
+          <i class="ph-bold ph-brain dashboard-empty-icon" aria-hidden="true"></i>
+          <p>{{ 'analysis.empty' | translate }}</p>
         </div>
-        <p class="section-desc">{{ a.risk.description }}</p>
-      </section>
-
-      <!-- Summary -->
-      <section class="analysis-section summary-section">
-        <h3 class="section-title">{{ 'analysis.summary' | translate }}</h3>
-        <p class="summary-text">{{ a.summary }}</p>
-        <p class="analysis-meta">
-          {{ 'analysis.generated' | translate }} {{ a.generatedAt | date:'medium' }}
-        </p>
-      </section>
-    </div>
-  } @else if (isOpen() && !analysis && !isAnalyzing && isConfigured && store.hasTicker()) {
-    <div class="dashboard-empty" role="region" aria-label="AI Analysis empty state">
-      <i class="ph-bold ph-brain dashboard-empty-icon" aria-hidden="true"></i>
-      <p>{{ 'analysis.empty' | translate }}</p>
+      }
     </div>
   }
 </div>

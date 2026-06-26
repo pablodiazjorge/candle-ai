@@ -215,3 +215,159 @@ describe('RSI calculation', () => {
     expect(Object.keys(result)).toHaveLength(36);
   });
 });
+
+// ─── ADX Calculation ───────────────────────────────────────────────
+
+function calcADX(candles: Candle[], period: number): Record<number, number> {
+  const result: Record<number, number> = {};
+  if (candles.length < period + 1) return result;
+
+  const trValues: number[] = [];
+  const plusDM: number[] = [];
+  const minusDM: number[] = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high;
+    const low = candles[i].low;
+    const prevClose = candles[i - 1].close;
+
+    const tr = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose),
+    );
+    trValues.push(tr);
+
+    const upMove = high - candles[i - 1].high;
+    const downMove = candles[i - 1].low - low;
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  // Wilder's smoothing
+  let atr = trValues.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let smoothedPlusDM = plusDM.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let smoothedMinusDM = minusDM.slice(0, period).reduce((a, b) => a + b, 0) / period;
+
+  for (let i = period; i < trValues.length; i++) {
+    atr = (atr * (period - 1) + trValues[i]) / period;
+    smoothedPlusDM = (smoothedPlusDM * (period - 1) + plusDM[i]) / period;
+    smoothedMinusDM = (smoothedMinusDM * (period - 1) + minusDM[i]) / period;
+
+    const plusDI = atr > 0 ? (smoothedPlusDM / atr) * 100 : 0;
+    const minusDI = atr > 0 ? (smoothedMinusDM / atr) * 100 : 0;
+    const dxSum = plusDI + minusDI;
+    const dx = dxSum > 0 ? Math.abs(plusDI - minusDI) / dxSum * 100 : 0;
+
+    result[candles[i + 1].time] = Math.round(dx * 100) / 100;
+  }
+
+  return result;
+}
+
+describe('ADX calculation', () => {
+  it('returns ADX values for sufficient candles', () => {
+    const candles = makeCandles(50, 100, 3);
+    const result = calcADX(candles, 14);
+    const values = Object.values(result);
+    expect(values.length).toBeGreaterThan(0);
+  });
+
+  it('ADX values are between 0 and 100', () => {
+    const candles = makeCandles(100, 100, 3);
+    const result = calcADX(candles, 14);
+    Object.values(result).forEach((v) => {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(100);
+    });
+  });
+
+  it('returns empty for insufficient candles', () => {
+    const candles = makeCandles(10, 100, 2);
+    const result = calcADX(candles, 14);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+
+  it('strong trending candles produce higher ADX', () => {
+    // Create candles with consistent upward movement
+    const candles: Candle[] = [];
+    let price = 100;
+    for (let i = 0; i < 50; i++) {
+      price += 2; // Strong trend
+      candles.push({
+        time: 1700000000 + i * 86400,
+        open: price - 1,
+        high: price + 1,
+        low: price - 1.5,
+        close: price,
+        volume: 1000000,
+      });
+    }
+    const result = calcADX(candles, 14);
+    const values = Object.values(result);
+    const lastValue = values[values.length - 1];
+    // Strong trend should produce high ADX
+    expect(lastValue).toBeGreaterThan(25);
+  });
+});
+
+// ─── Volume Analysis ───────────────────────────────────────────────
+
+function detectVolumeClimax(candles: Candle[]): { time: number; ratio: number }[] {
+  if (candles.length < 20) return [];
+  const avgVolume = candles.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
+  const spikes: { time: number; ratio: number }[] = [];
+  for (let i = candles.length - 20; i < candles.length; i++) {
+    const ratio = candles[i].volume / avgVolume;
+    if (ratio >= 2.5) spikes.push({ time: candles[i].time, ratio });
+  }
+  return spikes;
+}
+
+function detectVolumeDryUp(candles: Candle[]): { time: number; ratio: number }[] {
+  if (candles.length < 20) return [];
+  const avgVolume = candles.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
+  if (avgVolume === 0) return [];
+  const dips: { time: number; ratio: number }[] = [];
+  for (let i = candles.length - 20; i < candles.length; i++) {
+    const ratio = candles[i].volume / avgVolume;
+    if (ratio <= 0.5) dips.push({ time: candles[i].time, ratio });
+  }
+  return dips;
+}
+
+describe('Volume analysis', () => {
+  it('volume climax detects spikes >= 2.5x average', () => {
+    const candles = makeCandles(30, 100, 2);
+    // Inject a spike
+    candles[candles.length - 5].volume = 10_000_000; // ~8x of normal
+    const spikes = detectVolumeClimax(candles);
+    expect(spikes.length).toBeGreaterThan(0);
+    const spike = spikes.find((s) => s.time === candles[candles.length - 5].time);
+    expect(spike).toBeDefined();
+    expect(spike!.ratio).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it('volume dry-up detects dips <= 0.5x average', () => {
+    const candles = makeCandles(30, 100, 2);
+    candles[candles.length - 3].volume = 100_000; // ~0.1x of normal
+    const dips = detectVolumeDryUp(candles);
+    expect(dips.length).toBeGreaterThan(0);
+    const dip = dips.find((d) => d.time === candles[candles.length - 3].time);
+    expect(dip).toBeDefined();
+    expect(dip!.ratio).toBeLessThanOrEqual(0.5);
+  });
+
+  it('no spikes when volume is consistent', () => {
+    const candles: Candle[] = [];
+    for (let i = 0; i < 30; i++) {
+      candles.push({
+        time: 1700000000 + i * 86400,
+        open: 100, high: 102, low: 98, close: 101,
+        volume: 1_000_000,
+      });
+    }
+    const spikes = detectVolumeClimax(candles);
+    expect(spikes).toHaveLength(0);
+  });
+});

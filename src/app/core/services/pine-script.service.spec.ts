@@ -19,6 +19,10 @@ function formatPatternType(type: string): string {
     bearish_harami: 'Bearish Harami',
     three_white_soldiers: 'Three White Soldiers',
     three_black_crows: 'Three Black Crows',
+    double_top: 'Double Top',
+    double_bottom: 'Double Bottom',
+    head_and_shoulders: 'Head & Shoulders',
+    inverse_head_and_shoulders: 'Inv. Head & Shoulders',
   };
   return map[type] ?? type;
 }

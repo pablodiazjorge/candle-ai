@@ -206,7 +206,7 @@ all future code will be measured.
 
 ---
 
-## Epic 6: Quantitative Foundation 🔮
+## Epic 6: Quantitative Foundation ✅
 
 **Goal**: Implement the analytical infrastructure that the knowledge base
 defines — market regime detection, chart pattern recognition, volume analysis,
@@ -219,22 +219,22 @@ a quality grade.
 
 ### Deliverables
 
-- [ ] Market regime detection (SMA alignment + ADX + market structure)
+- [x] Market regime detection (SMA alignment + ADX + market structure)
   - Three-method consensus: SMA 20/50/200 alignment, ADX threshold, HH/HL
     vs LH/LL sequence
   - Output: `RegimeClassification` (Strong Uptrend, Weak Uptrend, Ranging,
     Weak Downtrend, Strong Downtrend, Transitional)
-- [ ] Chart pattern detection — Priority order from 2026 adaptations:
+- [x] Chart pattern detection — Priority order from 2026 adaptations:
   1. Head & Shoulders / Inverse H&S (daily/weekly) — still the gold standard
   2. Double Top / Double Bottom (daily, 15+ candle minimum separation)
   3. Bump & Run Reversal — actually improved over decades
   4. Rounding Bottom / Top
   5. Cup & Handle
-- [ ] Volume profile analysis
+- [x] Volume profile analysis
   - Volume Climax detection (≥ 250% of 20-period average)
   - Volume Dry-Up detection (≤ 50% of average)
   - Volume Divergence (price vs volume direction mismatch)
-- [ ] Pattern quality grading engine (A/B/C/D)
+- [x] Pattern quality grading engine (A/B/C/D)
   - Universal criteria: volume confirmation, S/R proximity, trend alignment,
     body-to-range ratio, prior trend length, next-candle confirmation
   - Deterministic scoring function (see `classical-patterns.md` Section 9.3)
@@ -259,7 +259,7 @@ pattern detection.
 
 ---
 
-## Epic 7: Confluence Engine 🔮
+## Epic 7: Confluence Engine �
 
 **Goal**: Replace the LLM-only analysis pipeline with a deterministic
 probabilistic scoring model that produces confidence tiers without AI
@@ -271,22 +271,22 @@ Epic 6.
 
 ### Deliverables
 
-- [ ] Probabilistic scoring model implementation
+- [x] Probabilistic scoring model implementation
   - Base rate from regime classification
   - Evidence modification per `classical-patterns-2026.md` Section 8
   - Confidence tier calculation (HIGH ≥ 0.75, MEDIUM ≥ 0.60, LOW ≥ 0.50)
-- [ ] Signal hierarchy and conflict resolution engine
+- [x] Signal hierarchy and conflict resolution engine
   - Five-level hierarchy: Market Structure → Chart Patterns → Candlestick
     Patterns → Momentum Indicators → Volume
   - Conflict resolution rules (see `analytical-framework.md` Section 4.2)
-- [ ] Risk parameter computation
+- [x] Risk parameter computation
   - Stop-loss placement derived from market structure (not arbitrary %)
   - Minimum risk-reward ratio enforcement (1:2 HIGH, 1:3 MEDIUM)
   - Position sizing formula: (Account × Risk%) / (Entry − Stop)
-- [ ] Offline analysis mode — confidence tier output without LLM
+- [x] Offline analysis mode — confidence tier output without LLM
   - Works entirely client-side with zero network requests
   - Serves as fallback when LLM is unavailable
-- [ ] 2026 market overrides
+- [x] 2026 market overrides
   - Passive Flow Override: ×1.1 bullish / ×0.9 bearish for mega-caps/ETFs
   - 0DTE Gamma Override: downgrade intraday patterns one tier on M/W/F
 
@@ -366,8 +366,8 @@ language explanation of the quantitative output).
 | 3. Export & UX | ✅ | Pine Script, theming, loading |
 | 4. Infrastructure | ✅ | Cache, state, LLM hardening, a11y |
 | 5. Knowledge Base | ✅ | Framework, patterns, 2026 adaptations |
-| 6. Quantitative Foundation | 🔮 | Regime, chart patterns, volume, grading |
-| 7. Confluence Engine | 🔮 | Probabilistic scoring, signal hierarchy, risk |
+| 6. Quantitative Foundation | ✅ | Regime, chart patterns, volume, grading |
+| 7. Confluence Engine | 🚧 | Probabilistic scoring, signal hierarchy, risk |
 | 8. AI Augmentation | 🔮 | Narrative LLM, multi-TF, interactive analysis |
 
 ### Dependency Chain

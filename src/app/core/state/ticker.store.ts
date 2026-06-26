@@ -2,7 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { Candle } from '../models/candle.model';
 import { IndicatorResults, IndicatorSettings, RegimeResult, DEFAULT_INDICATOR_SETTINGS } from '../models/indicator.model';
 import { DetectedPattern, PatternType } from '../models/pattern.model';
-import { AnalysisResult } from '../models/analysis.model';
+import { AnalysisResult, ConfluenceResult } from '../models/analysis.model';
 import { Timeframe, Range } from '../services/market-data.service';
 
 export interface TickerState {
@@ -39,6 +39,7 @@ export class TickerStore {
   readonly indicators = signal<IndicatorResults | null>(initialState.indicators);
   readonly patterns = signal<DetectedPattern[]>(initialState.patterns);
   readonly regime = signal<RegimeResult | null>(null);
+  readonly confluence = signal<ConfluenceResult | null>(null);
   readonly analysis = signal<AnalysisResult | null>(initialState.analysis);
   readonly watchlist = signal<string[]>(initialState.watchlist);
   readonly activeIndicators = signal<IndicatorSettings>(initialState.activeIndicators);
@@ -71,6 +72,7 @@ export class TickerStore {
     this.activeIndicators.set(DEFAULT_INDICATOR_SETTINGS);
     this.patterns.set([]);
     this.regime.set(null);
+    this.confluence.set(null);
     this.analysis.set(null);
   }
 
@@ -101,8 +103,12 @@ export class TickerStore {
     this.patterns.set(pat);
   }
 
-  setRegime(r: RegimeResult): void {
+  setRegime(r: RegimeResult | null): void {
     this.regime.set(r);
+  }
+
+  setConfluence(c: ConfluenceResult): void {
+    this.confluence.set(c);
   }
 
   setAnalysis(a: AnalysisResult): void {
