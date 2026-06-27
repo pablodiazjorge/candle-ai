@@ -242,8 +242,9 @@
 
 /* ─── Legend Modal ────────────────────────────────────────── */
 
-.legend-modal {
-  max-width: 960px;
+.modal-content.legend-modal {
+  width: 500px;
+  max-width: 90vw;
   max-height: 80vh;
   display: flex;
   flex-direction: column;

@@ -731,7 +731,25 @@
   color: var(--color-text-primary);
   margin: 0;
   line-height: 1.5;
+}
+
+/* User messages: preserve newlines */
+.chat-user .chat-content {
   white-space: pre-wrap;
+}
+
+/* Assistant messages: rendered HTML (bold, paragraphs) */
+.chat-assistant .chat-content strong {
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.chat-assistant .chat-content p {
+  margin: 0 0 8px;
+}
+
+.chat-assistant .chat-content p:last-child {
+  margin-bottom: 0;
 }
 
 .follow-up-error {

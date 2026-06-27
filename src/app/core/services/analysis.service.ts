@@ -105,7 +105,7 @@ export class AnalysisService {
     const confluence = this.tickerStore.confluence();
     const analysis = this.tickerStore.analysis();
 
-    let systemContext = 'You are a financial market analyst answering follow-up questions about a completed analysis. Be concise and specific. Reference the actual signals and data from the analysis. Do NOT recompute or contradict the deterministic confluence result.';
+    let systemContext = 'You are a financial market analyst answering follow-up questions about a completed analysis. Be concise and specific. Reference the actual signals and data from the analysis. Do NOT recompute or contradict the deterministic confluence result.\n\nFORMATTING: When making lists, put EACH item on its OWN line with a newline before the bullet. Use "* item" or "1. item" format. Example:\n* First item\n* Second item\n\nDo NOT write lists inline like "Items:* First* Second".';
 
     if (confluence) {
       systemContext += `\n\nThe deterministic analysis determined: ${confluence.direction.toUpperCase()} direction, ${confluence.tier} confidence tier, ${(confluence.probability * 100).toFixed(0)}% bullish probability.`;

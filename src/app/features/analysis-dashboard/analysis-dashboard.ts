@@ -1,4 +1,5 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, effect, ElementRef, viewChild } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { TranslatePipe } from '@ngx-translate/core';
 import { TickerStore } from '../../core/state/ticker.store';
@@ -20,6 +21,7 @@ export class AnalysisDashboard implements OnInit {
   readonly settingsStore = inject(LlmSettingsStore);
   private readonly analysisService = inject(AnalysisService);
   private readonly cacheStore = inject(CacheStore);
+  private readonly sanitizer = inject(DomSanitizer);
 
   readonly isOpen = signal(true);
   readonly error = signal<string | null>(null);
@@ -34,6 +36,21 @@ export class AnalysisDashboard implements OnInit {
   // ── Epic 8 Track C: Analysis history ────────────────────────────
   readonly previousAnalysis = signal<AnalysisHistoryEntry | null>(null);
   readonly showHistory = signal(false);
+
+  // ── Chat auto-scroll ────────────────────────────────────────────
+  readonly chatContainer = viewChild<ElementRef<HTMLDivElement>>('chatBubbles');
+
+  constructor() {
+    // Auto-scroll chat to bottom when new messages arrive
+    effect(() => {
+      this.followUpHistory(); // track signal changes
+      const el = this.chatContainer()?.nativeElement;
+      if (el) {
+        // Use setTimeout to wait for DOM render after signal update
+        setTimeout(() => { el.scrollTop = el.scrollHeight; }, 0);
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.loadPreviousAnalysis();
@@ -134,6 +151,31 @@ export class AnalysisDashboard implements OnInit {
 
   canAskFollowUp(): boolean {
     return this.isConfigured && this.followUpHistory().length < 10 && !this.followUpLoading();
+  }
+
+  /** Convert basic markdown to safe HTML for chat rendering */
+  formatMarkdown(text: string): SafeHtml {
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Split inline bullets: "text:* item" → "text:\n* item"
+    html = html.replace(/([^\s\n])([*+-])([ \u00a0])/g, '$1\n$2$3');
+
+    // Bullet lines → • lines
+    html = html.replace(/(^|\n)[*+-][ \u00a0]+/g, '$1• ');
+
+    // Paragraphs and line breaks
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+    html = `<p>${html}</p>`;
+    html = html.replace(/<p><\/p>/g, '');
+
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   clearChat(): void {

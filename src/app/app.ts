@@ -10,7 +10,7 @@ import { ExportPanel } from './features/export-panel/export-panel';
 import { LlmSettings } from './features/llm-settings/llm-settings';
 import { LlmSettingsStore } from './core/state/llm-settings.store';
 import { TickerStore } from './core/state/ticker.store';
-import { MarketDataService } from './core/services/market-data.service';
+import { MarketDataService, Range } from './core/services/market-data.service';
 import { IndicatorsService } from './core/services/indicators.service';
 import { PatternsService } from './core/services/patterns.service';
 import { GradingService } from './core/services/grading.service';
@@ -36,7 +36,7 @@ export class App implements OnInit {
   private readonly confluenceService = inject(ConfluenceService);
   private readonly cacheStore = inject(CacheStore);
 
-  readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1w'] as const;
+  readonly timeframes = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
   readonly ranges = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max'] as const;
   isSidebarOpen = true;
   readonly isDarkTheme = signal(true);
@@ -86,6 +86,8 @@ export class App implements OnInit {
       this.store.setCandleData(cached);
       this.computeActiveIndicators(cached);
       this.detectPatterns(cached);
+      // Fire-and-forget weekly context (non-blocking)
+      this.loadWeeklyContext(ticker, range).catch(() => {});
       return;
     }
 
@@ -98,7 +100,52 @@ export class App implements OnInit {
       this.store.setCandleData(candles);
       this.computeActiveIndicators(candles);
       this.detectPatterns(candles);
+      // Fire-and-forget weekly context (non-blocking)
+      this.loadWeeklyContext(ticker, range).catch(() => {});
     }
+  }
+
+  /**
+   * Epic 8 Track A: Load weekly timeframe data for multi-TF context.
+   * Runs in background — does not block the main data pipeline.
+   * Gracefully degrades: if weekly fails, the badge simply won't appear.
+   */
+  private async loadWeeklyContext(ticker: string, range: Range): Promise<void> {
+    // Skip if already on weekly or monthly timeframe
+    if (this.store.timeframe() === '1wk' || this.store.timeframe() === '1mo') return;
+
+    const cacheKey = CacheStore.buildKey(ticker, '1wk', range);
+    const cached = await this.cacheStore.get(cacheKey);
+    if (cached) {
+      this.store.setWeeklyCandleData(cached);
+      this.computeWeeklyConfluence(cached);
+      return;
+    }
+
+    const candles = await this.marketData.fetchCandles(ticker, '1wk', range);
+    if (candles.length > 0) {
+      await this.cacheStore.set(cacheKey, candles);
+      this.store.setWeeklyCandleData(candles);
+      this.computeWeeklyConfluence(candles);
+    }
+  }
+
+  /** Compute confluence for weekly data (lightweight — no indicators by default) */
+  private computeWeeklyConfluence(candles: Candle[]): void {
+    const ticker = this.store.selectedTicker() ?? 'SPY';
+    // Run confluence on weekly candles with whatever patterns can be detected
+    const patterns = this.patternsService.detectAll(candles);
+    const chartPatterns = this.patternsService.detectChartPatterns(candles);
+    const graded = this.gradingService.gradeAll([...patterns, ...chartPatterns], candles);
+
+    const result = this.confluenceService.score(
+      null, // no regime for weekly (would need indicators worker)
+      graded,
+      null, // no indicators for weekly
+      candles,
+      ticker,
+    );
+    this.store.setWeeklyConfluence(result);
   }
 
   /** Run pattern detection on candle data, then compute confluence */

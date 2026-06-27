@@ -19,7 +19,7 @@ export interface YahooChartResponse {
   };
 }
 
-export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
+export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1wk' | '1mo';
 export type Range = '1d' | '5d' | '1mo' | '3mo' | '6mo' | '1y' | '2y' | '5y' | 'max';
 
 @Injectable({ providedIn: 'root' })
@@ -118,7 +118,7 @@ function generateSynthetic(symbol: string, interval: Timeframe, range: Range): C
 
   // Candle interval in seconds
   const intervalSeconds: Record<Timeframe, number> = {
-    '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400, '1w': 604800,
+    '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400, '1wk': 604800, '1mo': 2592000,
   };
   const step = intervalSeconds[interval] ?? 86400;
 

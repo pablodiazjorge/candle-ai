@@ -20,7 +20,7 @@ export interface TickerState {
 const initialState: TickerState = {
   selectedTicker: null,
   timeframe: '1d',
-  range: 'max',
+  range: '5y',
   candleData: [],
   indicators: null,
   activeIndicators: DEFAULT_INDICATOR_SETTINGS,
@@ -98,6 +98,10 @@ export class TickerStore {
 
   setRange(r: Range): void {
     this.range.set(r);
+    // Max range → auto-switch to monthly candles for readability
+    if (r === 'max') {
+      this.timeframe.set('1mo');
+    }
   }
 
   setCandleData(data: Candle[]): void {
@@ -232,6 +236,7 @@ function intradayMaxRange(tf: string): string {
     case '15m':  return '1mo';   // 15-minute bars: max ~1 month
     case '1h':   return '3mo';   // hourly bars: max ~3 months
     case '4h':   return '6mo';   // 4-hour bars: max ~6 months
+    case '1mo':  return 'max';   // monthly: unlimited
     default:     return 'max';   // daily/weekly: unlimited
   }
 }

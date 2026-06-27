@@ -264,11 +264,15 @@
           <h3 class="section-title">Follow-up Questions</h3>
 
           @if (followUpHistory().length > 0) {
-            <div class="chat-bubbles">
+            <div class="chat-bubbles" #chatBubbles>
               @for (msg of followUpHistory(); track msg.content) {
                 <div class="chat-bubble" [class.chat-user]="msg.role === 'user'" [class.chat-assistant]="msg.role === 'assistant'">
                   <span class="chat-role">{{ msg.role === 'user' ? 'You' : 'AI' }}</span>
-                  <p class="chat-content">{{ msg.content }}</p>
+                  @if (msg.role === 'assistant') {
+                    <div class="chat-content" [innerHTML]="formatMarkdown(msg.content)"></div>
+                  } @else {
+                    <p class="chat-content">{{ msg.content }}</p>
+                  }
                 </div>
               }
             </div>
