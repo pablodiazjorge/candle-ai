@@ -77,14 +77,25 @@ ng serve
 Open `http://localhost:4200`. Select a ticker from the watchlist, enable an
 indicator, and click "Run Analysis".
 
-For AI analysis, install [Ollama](https://ollama.com) and pull a model:
+For AI analysis, you have two options:
+
+**Option A — Cloud (production, zero setup):** Select DeepSeek, OpenAI, or
+Groq in ⚙️ → Settings and paste your API key. Cloud calls are proxied through
+Vercel's Edge Function at `/api/llm/*` to bypass CORS restrictions.
+
+**Option B — Local (development, private):** Install [Ollama](https://ollama.com)
+and pull a model:
 
 ```bash
+# Windows: set CORS first — $env:OLLAMA_ORIGINS = "*"
 ollama pull llama3.1:8b   # Best for 12+ GB VRAM (RTX 3060/4060/4070)
 ```
 
-The default preset already points to `http://localhost:11434/v1` with
-`llama3.1:8b`. Click ⚙️ → Test Connection to verify.
+On localhost, the default preset points to `http://localhost:11434/v1` with
+`llama3.1:8b`. In production, the default is DeepSeek — local providers
+won't work remotely unless you expose Ollama via a tunnel (ngrok) or set
+`OLLAMA_ORIGINS=*` for direct browser access. Click ⚙️ → Test Connection
+in either environment to verify.
 
 ---
 
@@ -256,6 +267,8 @@ User selects ticker
   → User clicks "Run Analysis" (optional LLM narrative)
     → AnalysisService.runAnalysis()
       → LlmProvider.complete(systemPrompt, userPrompt)
+        → (production) /api/llm/chat/completions → Vercel proxy → LLM API
+        → (localhost) direct fetch to LLM endpoint
       → parseResponse() → TickerStore.setAnalysis()
 ```
 

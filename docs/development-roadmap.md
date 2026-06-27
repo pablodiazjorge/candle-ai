@@ -420,6 +420,19 @@ derivation of log-odds Bayesian update.
 | 8. AI Augmentation | ✅ | Narrative LLM, multi-TF, follow-up chat, history |
 | 9. Adaptive Bayesian Confluence | ✅ | Log-odds inference, decay, clustering, SMC, volume, market context |
 
+### Post-Epic 9: Production LLM Proxy ✅ (2026-06-27)
+
+- [x] Vercel Edge Function `api/llm/[...route].js` proxying LLM
+  requests through a target-URL whitelist
+- [x] `LlmProvider.shouldUseProxy(baseUrl)` — cloud URLs proxy,
+  localhost bypasses entirely
+- [x] `isLocalOnly` flag on provider presets; production defaults
+  to DeepSeek when no config saved
+- [x] Smart context-aware callout in LLM Settings: orange warning
+  (local in prod), gray info (local in dev), blue hint (cloud
+  without key)
+- [x] Favicon: Phosphor `chart-line-up` icon (MIT)
+
 ### Dependency Chain
 
 ```

@@ -39,7 +39,9 @@ Browser
 |  +--------------------------+  +------------------------------+  |
 |  | IndexedDB                |  | HTTP (fetch)                 |  |
 |  | (Dexie.js)               |  | → Yahoo Finance (proxy)     |  |
-|  | Cache TTL: 1h            |  | → LLM Provider               |  |
+|  | Cache TTL: 1h            |  | → LLM (direct on localhost, |  |
+|  |                          |  |   via /api/llm proxy on     |  |
+|  |                          |  |   Vercel production)        |  |
 |  +--------------------------+  +------------------------------+  |
 +-----------------------------------------------------------------+
                 |                                  |
@@ -206,6 +208,17 @@ format (e.g., Anthropic's Messages API, Gemini's generateContent). These
 would require separate provider classes. The `response_format` detection
 by URL is a heuristic; a model that supports JSON mode on a non-local
 endpoint would not receive the parameter.
+
+**Production CORS proxy (2026-06-27).**
+Cloud LLM APIs (OpenAI, DeepSeek, Groq, etc.) do not set CORS headers,
+so direct browser `fetch()` calls are blocked outside localhost. A
+Vercel Edge Function at `api/llm/[...route].js` proxies all LLM
+requests in production. The frontend detects the environment via
+`shouldUseProxy(baseUrl)`: cloud URLs route through the proxy;
+localhost URLs bypass it entirely (the proxy can't reach the user's
+machine). The proxy validates target URLs against a whitelist of known
+providers to prevent open-proxy abuse. API keys are forwarded via
+`X-Target-API-Key` header — never logged, never stored server-side.
 
 ---
 
@@ -684,6 +697,15 @@ The Yahoo Finance API does not set CORS headers for browser requests.
 In development, the Angular dev server proxies `/api/yahoo/*` requests to
 `query1.finance.yahoo.com`. In production (Vercel), `vercel.json` rewrites
 handle the same routing. No separate backend is required.
+
+**LLM CORS proxy.**
+Cloud LLM APIs do not set CORS headers. In production (Vercel), LLM
+requests are routed through a serverless Edge Function at
+`api/llm/[...route].js` which forwards them to the target API and adds
+CORS response headers. Local providers (Ollama, llama.cpp) bypass the
+proxy — the browser calls them directly, which works because browsers
+treat `localhost` as a secure context. The proxy is only needed for
+cloud APIs and does not store or log any data.
 
 **Pattern detection false positives.**
 The pattern detectors are rule-based and generate false positives on noisy
