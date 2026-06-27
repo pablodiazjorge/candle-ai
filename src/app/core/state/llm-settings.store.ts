@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import {
   LlmProviderConfig,
   LLM_PROVIDER_PRESETS,
+  isProductionOrigin,
 } from '../llm/llm-config.model';
 
 const STORAGE_KEY = 'candle-ai-llm-settings';
@@ -23,6 +24,17 @@ export class LlmSettingsStore {
 
   readonly hasApiKey = computed(() => {
     return this.activeConfig().apiKey.length > 0;
+  });
+
+  /**
+   * True when a local-only provider (Ollama, llama.cpp) is selected
+   * while the app is running on a production domain.
+   * Local providers cannot work in production — they point to the
+   * user's machine which isn't accessible from Vercel's servers.
+   */
+  readonly isLocalProviderInProduction = computed(() => {
+    const config = this.activeConfig();
+    return !!config.isLocalOnly && isProductionOrigin();
   });
 
   // --- Actions ---
@@ -74,17 +86,49 @@ export class LlmSettingsStore {
   private loadConfig(): LlmProviderConfig {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const saved: LlmProviderConfig = JSON.parse(raw);
+        // If running in production and the saved config is a local-only
+        // provider, fall through to the production default. Localhost
+        // URLs cannot work from Vercel's servers.
+        if (saved.isLocalOnly && isProductionOrigin()) {
+          // Don't clear saved config — just use a cloud default for this session.
+          // The user can still switch back if they understand the limitation.
+        } else {
+          return saved;
+        }
+      }
     } catch { /* ignore */ }
-    // Default: first preset
+
+    // Default: first non-local preset in production, Ollama in dev
+    if (isProductionOrigin()) {
+      const cloudPreset = LLM_PROVIDER_PRESETS.find((p) => !p.isLocalOnly && p.baseUrl);
+      if (cloudPreset) return { ...cloudPreset };
+    }
     return { ...LLM_PROVIDER_PRESETS[0] };
   }
 
   private loadPresetName(): string {
     try {
       const raw = localStorage.getItem(`${STORAGE_KEY}--name`);
-      if (raw) return raw;
+      if (raw) {
+        // In production, if the saved name is a local-only provider
+        // and we switched to a cloud default, update the name.
+        if (isProductionOrigin()) {
+          const preset = LLM_PROVIDER_PRESETS.find((p) => p.name === raw);
+          if (preset?.isLocalOnly) {
+            const cloudPreset = LLM_PROVIDER_PRESETS.find((p) => !p.isLocalOnly && p.baseUrl);
+            if (cloudPreset) return cloudPreset.name;
+          }
+        }
+        return raw;
+      }
     } catch { /* ignore */ }
+
+    if (isProductionOrigin()) {
+      const cloudPreset = LLM_PROVIDER_PRESETS.find((p) => !p.isLocalOnly && p.baseUrl);
+      if (cloudPreset) return cloudPreset.name;
+    }
     return LLM_PROVIDER_PRESETS[0].name;
   }
 

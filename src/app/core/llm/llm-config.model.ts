@@ -13,6 +13,11 @@ export interface LlmProviderConfig {
   maxTokens: number;
   /** Temperature (0-2) */
   temperature: number;
+  /**
+   * If true, this provider only works on localhost (e.g. Ollama, llama.cpp).
+   * The UI shows a warning when using a local-only provider in production.
+   */
+  isLocalOnly?: boolean;
 }
 
 /**
@@ -33,6 +38,7 @@ export const LLM_PROVIDER_PRESETS: LlmProviderConfig[] = [
     model: 'llama3.1:8b',
     maxTokens: 2048,
     temperature: 0.3,
+    isLocalOnly: true,
   },
   {
     name: 'llama.cpp (local)',
@@ -41,6 +47,7 @@ export const LLM_PROVIDER_PRESETS: LlmProviderConfig[] = [
     model: 'local-model',
     maxTokens: 2048,
     temperature: 0.3,
+    isLocalOnly: true,
   },
   // ── Cloud APIs (use chat models, NOT reasoner/reasoning variants) ──
   {
@@ -84,3 +91,13 @@ export const LLM_PROVIDER_PRESETS: LlmProviderConfig[] = [
     temperature: 0.3,
   },
 ];
+
+/**
+ * Check if the current origin is a production deployment (not localhost).
+ * Used to decide defaults and show warnings.
+ */
+export function isProductionOrigin(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname;
+  return hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.');
+}

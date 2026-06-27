@@ -49,6 +49,7 @@
     "connectionOk": "Connection successful ✓",
     "connectionFailed": "Connection failed ✗",
     "localInfo": "Tip: Run a local model with llama.cpp (server) or Ollama. Use http://localhost:PORT/v1 as the base URL.",
+    "localInProductionWarning": "⚠ This is a local provider. It cannot work on the production website because it points to your own machine. Switch to a cloud provider (DeepSeek, OpenAI, Groq) or run the app locally.",
     "optional": "optional",
     "connection": "Connection",
     "modelConfig": "Model Configuration"

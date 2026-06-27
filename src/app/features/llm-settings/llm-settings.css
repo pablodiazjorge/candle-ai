@@ -481,6 +481,33 @@
   border-radius: 3px;
 }
 
+/* === Warning Callout (production + local provider) === */
+.warning-callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, 0.12);
+  border-left: 3px solid var(--color-yellow, #f59e0b);
+  border-radius: 4px;
+  margin-top: 12px;
+}
+
+.warning-callout-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-yellow, #f59e0b);
+}
+
+.warning-callout p {
+  font-size: 0.75rem; /* 12px */
+  color: var(--color-yellow, #f59e0b);
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
 /* === Test button spinner === */
 .test-btn .spinner {
   display: inline-block;

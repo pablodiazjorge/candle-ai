@@ -68,6 +68,9 @@ export class LlmSettings {
         config.baseUrl,
         config.apiKey,
         config.model,
+        config.maxTokens,
+        config.temperature,
+        LlmProvider.shouldUseProxy(),
       );
       const ok = await provider.healthCheck();
       this.connectionStatus.set(ok ? 'success' : 'error');

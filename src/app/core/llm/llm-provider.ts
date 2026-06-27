@@ -2,6 +2,11 @@
  * OpenAI-compatible LLM provider.
  * Works with Ollama, llama.cpp, DeepSeek, OpenAI, Groq, Together AI, etc.
  *
+ * In production (non-localhost origin), all requests are routed through
+ * a Vercel Edge Function proxy at /api/llm to avoid CORS issues.
+ * Most LLM APIs do NOT set Access-Control-Allow-Origin, so direct
+ * browser→API fetch() calls are blocked outside localhost.
+ *
  * NOTE: reasoning/thinking models (o1, o3, deepseek-r1, qwen3, qwq, etc.)
  * output chain-of-thought that can't be parsed as JSON.
  * Use standard chat/instruct models for structured output.
@@ -42,12 +47,30 @@ export class LlmProvider {
   private static readonly MAX_RETRIES = 2;
   private static readonly RETRY_BACKOFF_MS = [1000, 2000];
 
+  /**
+   * Detect if we need to proxy LLM requests to avoid CORS issues.
+   * In local development (localhost origin), direct calls work fine
+   * because Ollama runs locally or the Angular proxy handles routing.
+   * In production, we must go through the Vercel Edge Function at /api/llm
+   * because LLM APIs do NOT set CORS headers.
+   */
+  static shouldUseProxy(): boolean {
+    if (typeof window === 'undefined') return false;
+    const origin = window.location.hostname;
+    return origin !== 'localhost' && origin !== '127.0.0.1' && !origin.startsWith('192.168.');
+  }
+
+  /** Proxy URL used when shouldUseProxy() is true */
+  static readonly PROXY_URL = '/api/llm';
+
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly model: string,
     private readonly maxTokens: number = 2048,
     private readonly temperature: number = 0.3,
+    /** If true, route requests through Vercel proxy to avoid CORS */
+    private readonly useProxy: boolean = false,
   ) {}
 
   /** Send a chat completion request with retry + timeout */
@@ -106,6 +129,16 @@ export class LlmProvider {
     throw lastError ?? new Error('LLM request failed');
   }
 
+  /** Build the effective URL, using proxy if enabled */
+  private buildUrl(path: string): string {
+    if (this.useProxy) {
+      // When proxying, always call /api/llm/<path> — the proxy
+      // forwards to the real target based on headers below.
+      return `${LlmProvider.PROXY_URL}${path.replace(this.baseUrl, '')}`;
+    }
+    return path;
+  }
+
   /** Send a single request with timeout */
   private async sendRequest(
     url: string,
@@ -127,12 +160,26 @@ export class LlmProvider {
         body.response_format = { type: 'json_object' };
       }
 
-      const response = await fetch(url, {
+      const effectiveUrl = this.buildUrl(url);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      };
+
+      // When proxying, pass the real target URL + API key as headers
+      // so the Vercel Edge Function knows where to forward the request.
+      if (this.useProxy) {
+        headers['X-Target-Base-URL'] = this.baseUrl;
+        headers['X-Target-API-Key'] = this.apiKey;
+        // Remove Authorization from proxied requests — the proxy
+        // re-adds it after reading X-Target-API-Key to avoid leaking
+        // the key to the target if it differs.
+        delete headers['Authorization'];
+      }
+
+      const response = await fetch(effectiveUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
+        headers,
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -170,8 +217,21 @@ export class LlmProvider {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(`${this.baseUrl}/models`, {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
+
+      let url: string;
+      const headers: Record<string, string> = {};
+
+      if (this.useProxy) {
+        url = `${LlmProvider.PROXY_URL}/models`;
+        headers['X-Target-Base-URL'] = this.baseUrl;
+        headers['X-Target-API-Key'] = this.apiKey;
+      } else {
+        url = `${this.baseUrl}/models`;
+        headers['Authorization'] = `Bearer ${this.apiKey}`;
+      }
+
+      const response = await fetch(url, {
+        headers,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

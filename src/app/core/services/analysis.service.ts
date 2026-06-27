@@ -54,6 +54,7 @@ export class AnalysisService {
         config.model,
         config.maxTokens,
         config.temperature,
+        LlmProvider.shouldUseProxy(),
       );
 
       // Epic 7: capture deterministic confluence + regime for narrative prompt
@@ -99,6 +100,7 @@ export class AnalysisService {
       config.model,
       config.maxTokens,
       config.temperature,
+      LlmProvider.shouldUseProxy(),
     );
 
     // Build system context from current confluence + analysis
