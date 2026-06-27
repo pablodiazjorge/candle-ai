@@ -215,7 +215,7 @@
       <!-- ─── Epic 8 Track C: Analysis History Comparison ────────────────── -->
       @if (showHistory() && previousAnalysis(); as prev) {
         <section class="analysis-section history-section">
-          <h3 class="section-title">Previous Analysis</h3>
+          <h3 class="section-title">{{ 'analysis.previousAnalysis' | translate }}</h3>
           <div class="history-card">
             <div class="history-meta">
               {{ prev.timestamp | date:'mediumDate' }}
@@ -223,7 +223,7 @@
             <div class="history-deltas">
               @if (confluence; as c) {
                 <div class="history-delta">
-                  <span class="delta-label">Tier</span>
+                  <span class="delta-label">{{ 'analysis.tier' | translate }}</span>
                   <span class="delta-values">
                     <span class="delta-old">{{ 'confluence.tier.' + prev.confluence.tier.toLowerCase() | translate }}</span>
                     <span class="delta-arrow">→</span>
@@ -233,7 +233,7 @@
                   </span>
                 </div>
                 <div class="history-delta">
-                  <span class="delta-label">Direction</span>
+                  <span class="delta-label">{{ 'analysis.direction' | translate }}</span>
                   <span class="delta-values">
                     <span class="delta-old">{{ 'analysis.' + prev.confluence.direction | translate }}</span>
                     <span class="delta-arrow">→</span>
@@ -243,7 +243,7 @@
                   </span>
                 </div>
                 <div class="history-delta">
-                  <span class="delta-label">Probability</span>
+                  <span class="delta-label">{{ 'analysis.probability' | translate }}</span>
                   <span class="delta-values">
                     <span class="delta-old">{{ (prev.confluence.probability * 100) | number:'1.0-0' }}%</span>
                     <span class="delta-arrow">→</span>
@@ -261,13 +261,13 @@
       <!-- ─── Epic 8 Track B: Interactive Follow-up Chat ─────────────────── -->
       @if (isConfigured && (confluence || analysis)) {
         <section class="analysis-section follow-up-section">
-          <h3 class="section-title">Follow-up Questions</h3>
+          <h3 class="section-title">{{ 'analysis.followUp.title' | translate }}</h3>
 
           @if (followUpHistory().length > 0) {
             <div class="chat-bubbles" #chatBubbles>
               @for (msg of followUpHistory(); track msg.content) {
                 <div class="chat-bubble" [class.chat-user]="msg.role === 'user'" [class.chat-assistant]="msg.role === 'assistant'">
-                  <span class="chat-role">{{ msg.role === 'user' ? 'You' : 'AI' }}</span>
+                  <span class="chat-role">{{ msg.role === 'user' ? ('analysis.followUp.you' | translate) : ('analysis.followUp.ai' | translate) }}</span>
                   @if (msg.role === 'assistant') {
                     <div class="chat-content" [innerHTML]="formatMarkdown(msg.content)"></div>
                   } @else {
@@ -289,9 +289,9 @@
               [value]="followUpQuestion()"
               (input)="followUpQuestion.set($any($event.target).value)"
               (keydown.enter)="askFollowUp()"
-              placeholder="Ask about this analysis..."
+              [placeholder]="'analysis.followUp.placeholder' | translate"
               [disabled]="!canAskFollowUp()"
-              aria-label="Follow-up question"
+              [attr.aria-label]="'analysis.followUp.ariaLabel' | translate"
             />
             <button
               class="btn-chat-send"
@@ -301,15 +301,15 @@
               @if (followUpLoading()) {
                 <span class="spinner" aria-hidden="true"></span>
               } @else {
-                Send
+                {{ 'analysis.followUp.send' | translate }}
               }
             </button>
             @if (followUpHistory().length > 0) {
-              <button class="btn-chat-clear" (click)="clearChat()">Clear</button>
+              <button class="btn-chat-clear" (click)="clearChat()">{{ 'analysis.followUp.clear' | translate }}</button>
             }
           </div>
           @if (followUpHistory().length >= 10) {
-            <div class="chat-limit">Max messages reached. Clear chat to continue.</div>
+            <div class="chat-limit">{{ 'analysis.followUp.maxMessages' | translate }}</div>
           }
         </section>
       }

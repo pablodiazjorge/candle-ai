@@ -27,7 +27,22 @@ vi.mock('@angular/core', async () => {
   };
 });
 
+// Mock @ngx-translate/core to avoid JIT compiler issues in vitest
+vi.mock('@ngx-translate/core', () => ({
+  TranslateService: vi.fn(() => ({
+    instant: vi.fn((key: string) => key),
+    currentLang: vi.fn(() => 'en'),
+    use: vi.fn(),
+    get: vi.fn(),
+    stream: vi.fn(),
+  })),
+  TranslatePipe: vi.fn(),
+  provideTranslateService: vi.fn(),
+  provideTranslateHttpLoader: vi.fn(),
+}));
+
 import { AnalysisService } from './analysis.service';
+import { TranslateService } from '@ngx-translate/core';
 import { LlmSettingsStore } from '../state/llm-settings.store';
 import { TickerStore } from '../state/ticker.store';
 import { CacheStore } from '../state/cache.store';
@@ -156,6 +171,15 @@ function setupAnalysisService(mocks: {
     saveAnalysis: vi.fn(() => Promise.resolve()),
     getAnalysisHistory: vi.fn(() => Promise.resolve([])),
     ...mocks.cacheStore,
+  });
+
+  // Mock TranslateService — returns key as-is (English pass-through)
+  injectMocks.set(TranslateService, {
+    instant: vi.fn((key: string, _params?: Record<string, string>) => key),
+    currentLang: vi.fn(() => 'en'),
+    use: vi.fn(),
+    get: vi.fn(),
+    stream: vi.fn(),
   });
 
   return new AnalysisService();

@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { LlmProvider, LlmMessage } from '../llm/llm-provider';
 import { LlmSettingsStore } from '../state/llm-settings.store';
 import { TickerStore } from '../state/ticker.store';
@@ -13,6 +14,7 @@ export class AnalysisService {
   private readonly settingsStore = inject(LlmSettingsStore);
   private readonly tickerStore = inject(TickerStore);
   private readonly cacheStore = inject(CacheStore);
+  private readonly translate = inject(TranslateService);
 
   readonly analyzing = signal(false);
   readonly error = signal<string | null>(null);
@@ -118,6 +120,9 @@ export class AnalysisService {
       systemContext += `\n\nThe narrative analysis summary: ${analysis.summary}`;
     }
 
+    // Respond in the user's selected UI language
+    systemContext += '\n\n' + this.getLanguageInstruction();
+
     const messages: LlmMessage[] = [
       { role: 'system', content: systemContext },
       ...conversationHistory,
@@ -145,7 +150,18 @@ CRITICAL RULES:
 6. NEVER invent prices, dates, or ticker symbols not provided in the data. If a claim is unsupported, say so.
 7. If the confluence probability is near 50%, acknowledge the uncertainty instead of forcing conviction.
 8. Provide at least 3 support/resistance levels when possible. The summary should be 3-5 actionable sentences.
-9. Return a valid JSON object matching the specified schema exactly. Do NOT include markdown code fences.`;
+9. Return a valid JSON object matching the specified schema exactly. Do NOT include markdown code fences.
+
+LANGUAGE: ${this.getLanguageInstruction()}`;
+  }
+
+  /** Build a language instruction based on the current UI language */
+  private getLanguageInstruction(): string {
+    const lang = this.translate.currentLang() ?? 'en';
+    if (lang === 'es') {
+      return 'You MUST write your ENTIRE response in Spanish. All descriptions, summaries, narrative text, and signal explanations must be in Spanish. Keep technical enum values (like "bullish", "bearish", "support", "resistance") and JSON field names in English as they are consumed programmatically.';
+    }
+    return 'Write your entire response in English. All descriptions, summaries, and narrative text must be in English.';
   }
 
   /**

@@ -10,17 +10,13 @@
 | Status | Count |
 |--------|-------|
 | 🔴 Open (pending) | 0 |
-| 🟢 Promoted | 6 |
+| 🟢 Promoted | 7 |
 | ⚫ Discarded | 1 |
-| **Total** | **7** |
+| **Total** | **8** |
 
 ---
 
 ## Open Issues
-
-<!-- auto-improve inserts new entries here -->
-<!-- ID format: ISSUE-YYYYMMDD-XXXX (date + 4 hex chars from UUID, no collision risk) -->
-<!-- FORMAT: | ID | Title | Category | Certainty | Occurrences | First | Last | -->
 
 <!-- No open issues. All resolved 2026-06-27. -->
 
@@ -38,6 +34,7 @@
 | ISSUE-20260624-534f | Angular templates: getters without (), signals with () | angular | /memories/angular-pitfalls.md | 2 | 2026-06-27 |
 | ISSUE-20260624-b91f | TS bracket notation for JSON.parse() results | library-api | /memories/library-api-versions.md | 1 | 2026-06-27 |
 | ISSUE-20260627-9434 | TS2869: Optional chaining on non-nullable array access rejects ?? fallback | library-api | /memories/library-api-versions.md | 2 | 2026-06-27 |
+| ISSUE-20260627-9e86 | @ngx-translate/core triggers JIT compiler error in vitest | library-api | /memories/library-api-versions.md | 2 | 2026-06-27 |
 
 ---
 

@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { Candle } from '../models/candle.model';
 import { DetectedPattern, PatternGrade, SMCSignal } from '../models/pattern.model';
 import { Timeframe } from './market-data.service';
@@ -334,6 +335,7 @@ function clusterPatterns(
  */
 @Injectable({ providedIn: 'root' })
 export class ConfluenceService {
+  private readonly translate = inject(TranslateService);
   /**
    * Score the current market state and produce a ConfluenceResult.
    *
@@ -367,16 +369,22 @@ export class ConfluenceService {
     // own alignment context as pBullish updates mid-loop.
     const initialRegimeIsBullish = pBullish >= 0.50;
 
-    const regimeLabel = regime ? regime.regime.replace(/_/g, ' ') : 'unknown';
+    const regimeLabel = regime
+      ? this.translate.instant(`regime.${regime.regime}`) ?? regime.regime.replace(/_/g, ' ')
+      : 'unknown';
     const hasRegime = regime !== null;
     contributions.push({
-      signal: `Market Regime: ${regimeLabel}`,
+      signal: `${this.translate.instant('confluence.marketRegime')}: ${regimeLabel}`,
       direction: pToDirection(pBullish),
       baseModifier: pBullish - 0.50,
       appliedModifier: pBullish - 0.50,
       description: hasRegime
-        ? `Base rate from regime classification (ADX=${regime!.methods.adxValue.toFixed(0)}, SMA=${regime!.methods.smaAlignment}, Structure=${regime!.methods.structure})`
-        : 'No regime data — neutral base rate (50% bullish). All signals scored with neutral context.',
+        ? this.translate.instant('confluence.desc.regimeBase', {
+            adx: regime!.methods.adxValue.toFixed(0),
+            sma: regime!.methods.smaAlignment,
+            structure: regime!.methods.structure,
+          })
+        : this.translate.instant('confluence.desc.regimeNoData'),
     });
 
     // ─── 2. Chart Patterns (Level 2) — clustered ────────────────
@@ -412,10 +420,10 @@ export class ConfluenceService {
 
       pBullish = bayesianUpdate(pBullish, signedLogLR);
 
-      const patternLabel = formatPatternLabel(cp.type, grade);
+      const patternLabel = this.formatPatternLabel(cp.type, grade);
       const regimeAlignedCp = (sigDir === 'bullish' && initialRegimeIsBullish) ||
         (sigDir === 'bearish' && !initialRegimeIsBullish);
-      const regimeNote = regimeAlignedCp ? 'regime-aligned' : 'counter-regime';
+      const alignmentKey = regimeAlignedCp ? 'confluence.regimeAligned' : 'confluence.regimeCounter';
       const clusterNote = tp.effectiveLogLR > tp.rawLogLR ? ', clustered' : '';
       contributions.push({
         signal: patternLabel,
@@ -423,8 +431,19 @@ export class ConfluenceService {
         baseModifier: signedLogLR,
         appliedModifier: signedLogLR,
         description: hasRegime
-          ? `${patternLabel} — ${regimeNote}, grade ${grade} (×${gradeMult}), decay ${(decayWeight * 100).toFixed(0)}%${clusterNote}`
-          : `${patternLabel} — neutral context, grade ${grade}, decay ${(decayWeight * 100).toFixed(0)}%`,
+          ? this.translate.instant('confluence.desc.patternWithRegime', {
+              pattern: patternLabel,
+              alignment: this.translate.instant(alignmentKey),
+              grade,
+              multiplier: gradeMult.toFixed(1),
+              decay: (decayWeight * 100).toFixed(0),
+              cluster: clusterNote,
+            })
+          : this.translate.instant('confluence.desc.patternNoRegime', {
+              pattern: patternLabel,
+              grade,
+              decay: (decayWeight * 100).toFixed(0),
+            }),
       });
     }
 
@@ -455,10 +474,10 @@ export class ConfluenceService {
 
       pBullish = bayesianUpdate(pBullish, signedLogLR);
 
-      const patternLabel = formatPatternLabel(cp.type, grade);
+      const patternLabel = this.formatPatternLabel(cp.type, grade);
       const regimeAlignedCp = (sigDir === 'bullish' && initialRegimeIsBullish) ||
         (sigDir === 'bearish' && !initialRegimeIsBullish);
-      const regimeNote = regimeAlignedCp ? 'regime-aligned' : 'counter-regime';
+      const alignmentKey = regimeAlignedCp ? 'confluence.regimeAligned' : 'confluence.regimeCounter';
       const clusterNote = tp.effectiveLogLR > tp.rawLogLR ? ', clustered' : '';
       contributions.push({
         signal: patternLabel,
@@ -466,8 +485,19 @@ export class ConfluenceService {
         baseModifier: signedLogLR,
         appliedModifier: signedLogLR,
         description: hasRegime
-          ? `${patternLabel} — ${regimeNote}, grade ${grade} (×${gradeMult}), decay ${(decayWeight * 100).toFixed(0)}%${clusterNote}`
-          : `${patternLabel} — neutral context, grade ${grade}, decay ${(decayWeight * 100).toFixed(0)}%`,
+          ? this.translate.instant('confluence.desc.patternWithRegime', {
+              pattern: patternLabel,
+              alignment: this.translate.instant(alignmentKey),
+              grade,
+              multiplier: gradeMult.toFixed(1),
+              decay: (decayWeight * 100).toFixed(0),
+              cluster: clusterNote,
+            })
+          : this.translate.instant('confluence.desc.patternNoRegime', {
+              pattern: patternLabel,
+              grade,
+              decay: (decayWeight * 100).toFixed(0),
+            }),
       });
     }
 
@@ -486,14 +516,23 @@ export class ConfluenceService {
 
       pBullish = bayesianUpdate(pBullish, signedLogLR);
 
+      const smcDescKey = this.smcDescriptionKey(smc.type, smc.direction);
+      const smcDesc = this.translate.instant(smcDescKey, { price: smc.price.toFixed(2) });
+      const smcSignalKey = this.translate.instant('confluence.smcSignal', { desc: smcDesc });
+      const smcAlignKey = regimeAligned ? 'confluence.regimeAligned' : 'confluence.regimeCounter';
+
       contributions.push({
-        signal: `SMC: ${smc.description}`,
+        signal: smcSignalKey,
         direction: smc.direction,
         baseModifier: signedLogLR,
         appliedModifier: signedLogLR,
         description: hasRegime
-          ? `${smc.description} — ${regimeAligned ? 'regime-aligned' : 'counter-regime'}, strength ${(smc.strength * 100).toFixed(0)}%`
-          : `${smc.description} — neutral context`,
+          ? this.translate.instant('confluence.desc.smcWithRegime', {
+              desc: smcDesc,
+              alignment: this.translate.instant(smcAlignKey),
+              strength: (smc.strength * 100).toFixed(0),
+            })
+          : this.translate.instant('confluence.desc.smcNoRegime', { desc: smcDesc }),
       });
     }
 
@@ -509,15 +548,18 @@ export class ConfluenceService {
 
         pBullish = bayesianUpdate(pBullish, signedLogLR);
 
-        const label = rsiDiv === 'bullish' ? 'RSI Bullish Divergence' : 'RSI Bearish Divergence';
+        const label = rsiDiv === 'bullish'
+          ? this.translate.instant('confluence.rsiBullishDivergence')
+          : this.translate.instant('confluence.rsiBearishDivergence');
+        const rsiDescKey = hasRegime
+          ? (regimeAligned ? 'confluence.desc.rsiAligned' : 'confluence.desc.rsiCounter')
+          : 'confluence.desc.rsiNeutral';
         contributions.push({
           signal: label,
           direction: rsiDiv,
           baseModifier: signedLogLR,
           appliedModifier: signedLogLR,
-          description: hasRegime
-            ? (regimeAligned ? 'Price-RSI divergence — regime-aligned' : 'Price-RSI divergence — counter-regime')
-            : 'Price-RSI divergence — neutral context',
+          description: this.translate.instant(rsiDescKey),
         });
       }
 
@@ -531,15 +573,18 @@ export class ConfluenceService {
 
         pBullish = bayesianUpdate(pBullish, signedLogLR);
 
-        const label = macdCross === 'bullish' ? 'MACD Bullish Crossover' : 'MACD Bearish Crossover';
+        const label = macdCross === 'bullish'
+          ? this.translate.instant('confluence.macdBullishCrossover')
+          : this.translate.instant('confluence.macdBearishCrossover');
+        const macdDescKey = hasRegime
+          ? (regimeAligned ? 'confluence.desc.macdAligned' : 'confluence.desc.macdCounter')
+          : 'confluence.desc.macdNeutral';
         contributions.push({
           signal: label,
           direction: macdCross,
           baseModifier: signedLogLR,
           appliedModifier: signedLogLR,
-          description: hasRegime
-            ? (regimeAligned ? 'MACD line crossed signal — regime-aligned' : 'MACD line crossed signal — counter-regime')
-            : 'MACD crossover — neutral context',
+          description: this.translate.instant(macdDescKey),
         });
       }
     }
@@ -548,87 +593,89 @@ export class ConfluenceService {
     const volCtx = analyzeVolumeContext(candles, indicators, patterns);
     if (volCtx) {
       let volLogLR = 0;
-      let volDesc = '';
+      let volDescKey = '';
 
       if (volCtx.climaxType === 'buy_climax') {
-        // Buy climax: high volume + close near high
         if (initialRegimeIsBullish) {
-          // In uptrend: distribution/absorption = bearish (smart money selling into strength)
           volLogLR = EVIDENCE_LOG_LR.VOLUME_CONTRA;
-          volDesc = 'Buy climax in uptrend — distribution (bearish)';
+          volDescKey = 'confluence.desc.climaxBuyUptrend';
         } else {
-          // In downtrend: capitulation = bullish (smart money accumulating)
           volLogLR = EVIDENCE_LOG_LR.VOLUME_CONFIRM;
-          volDesc = 'Buy climax in downtrend — capitulation (bullish)';
+          volDescKey = 'confluence.desc.climaxBuyDowntrend';
         }
       } else if (volCtx.climaxType === 'sell_climax') {
-        // Sell climax: high volume + close near low
         if (initialRegimeIsBullish) {
-          // In uptrend: profit-taking/distribution = bearish
           volLogLR = EVIDENCE_LOG_LR.VOLUME_CONTRA;
-          volDesc = 'Sell climax in uptrend — distribution (bearish)';
+          volDescKey = 'confluence.desc.climaxSellUptrend';
         } else {
-          // In downtrend: capitulation = bullish (exhaustion of selling)
           volLogLR = EVIDENCE_LOG_LR.VOLUME_CONFIRM;
-          volDesc = 'Sell climax in downtrend — capitulation (bullish)';
+          volDescKey = 'confluence.desc.climaxSellDowntrend';
         }
       } else if (volCtx.deltaDirection === 'buy') {
         volLogLR = EVIDENCE_LOG_LR.VOLUME_CONFIRM * 0.5;
-        volDesc = 'Buy-side volume pressure — weak confirm';
+        volDescKey = 'confluence.desc.buyPressure';
       } else if (volCtx.deltaDirection === 'sell') {
         volLogLR = EVIDENCE_LOG_LR.VOLUME_CONTRA * 0.5;
-        volDesc = 'Sell-side volume pressure — weak contradict';
+        volDescKey = 'confluence.desc.sellPressure';
       } else {
-        volLogLR = -0.10; // No clear signal = slight negative
-        volDesc = 'No directional volume signal — slight reduce';
+        volLogLR = -0.10;
+        volDescKey = 'confluence.desc.noDirection';
       }
+
+      const volDesc = this.translate.instant(volDescKey);
+      const volSignalType = volCtx.climaxType !== 'none'
+        ? volCtx.climaxType.replace('_', ' ')
+        : '';
 
       pBullish = bayesianUpdate(pBullish, volLogLR);
       contributions.push({
-        signal: volCtx.climaxType !== 'none' ? `Volume: ${volCtx.climaxType.replace('_', ' ')}` : 'Volume Pressure',
+        signal: volCtx.climaxType !== 'none'
+          ? this.translate.instant('confluence.volumeSignal', { type: volSignalType })
+          : this.translate.instant('confluence.volumePressure'),
         direction: volCtx.deltaDirection === 'buy' ? 'bullish' : volCtx.deltaDirection === 'sell' ? 'bearish' : 'neutral',
         baseModifier: volLogLR,
         appliedModifier: volLogLR,
-        description: `${volDesc} (delta: ${volCtx.deltaDirection}, strength: ${(volCtx.deltaStrength * 100).toFixed(0)}%)`,
+        description: this.translate.instant('confluence.desc.volume', {
+          desc: volDesc,
+          delta: volCtx.deltaDirection,
+          strength: (volCtx.deltaStrength * 100).toFixed(0),
+        }),
       });
     }
     // Note: if volSignal is null, volume indicators are not active — skip multiplier
 
     // ─── 5.5 Market Context (Epic 9) ────────────────────────────
     if (marketContext) {
-      const vixAdjustMsg = applyVixAdjustment(marketContext, contributions);
-      if (vixAdjustMsg) {
-        // Apply global log-LR scaling to all future signals
-        // Already-applied signals are not retroactively scaled.
-        // Instead, we add a single adjustment entry.
+      const vixKey = applyVixAdjustmentKey(marketContext.vixLevel);
+      if (vixKey) {
         pBullish = bayesianUpdate(pBullish, marketContext.vixAdjustment);
         contributions.push({
           signal: `VIX: ${marketContext.vixLevel}`,
           direction: 'neutral',
           baseModifier: marketContext.vixAdjustment,
           appliedModifier: marketContext.vixAdjustment,
-          description: vixAdjustMsg,
+          description: this.translate.instant(vixKey),
         });
       }
 
       if (marketContext.dxyCorrelation !== 0 && !ticker.includes('-USD')) {
-        // Forex majors: DXY is structurally ≈ -1.0 correlated with EUR/USD etc.
-        // Use direct inverse rather than computed correlation for accuracy
         const isForexMajor = FOREX_MAJORS.has(ticker);
         const dxyAdjust = isForexMajor
-          ? -0.12 // Direct inverse: DXY up = forex major down (stronger than -0.08)
+          ? -0.12
           : marketContext.dxyCorrelation > 0.3 ? -0.08
             : marketContext.dxyCorrelation < -0.3 ? 0.08 : 0;
         if (dxyAdjust !== 0) {
           pBullish = bayesianUpdate(pBullish, dxyAdjust);
+          const dxyDescKey = isForexMajor ? 'confluence.desc.dxyForex' : 'confluence.desc.dxyCorrelation';
+          const dxyDescParams = isForexMajor
+            ? { logLR: '−0.12' }
+            : { ticker, pct: (marketContext.dxyCorrelation * 100).toFixed(0) };
           contributions.push({
             signal: `DXY Correlation: ${marketContext.dxyCorrelation.toFixed(2)}`,
             direction: dxyAdjust > 0 ? 'bullish' : 'bearish',
             baseModifier: dxyAdjust,
             appliedModifier: dxyAdjust,
-            description: isForexMajor
-              ? 'Forex major — DXY inverse structural relationship (−0.12 logLR)'
-              : `DXY 30d correlation with ${ticker}: ${(marketContext.dxyCorrelation * 100).toFixed(0)}%`,
+            description: this.translate.instant(dxyDescKey, dxyDescParams),
           });
         }
       }
@@ -636,15 +683,17 @@ export class ConfluenceService {
       if (marketContext.fundingRate !== undefined) {
         const funding = marketContext.fundingRate;
         if (Math.abs(funding) > 0.001) {
-          // Extreme positive funding → bearish contrarian
           const fundingLR = funding > 0 ? -0.15 : 0.10;
           pBullish = bayesianUpdate(pBullish, fundingLR);
+          const fundingDescKey = funding > 0
+            ? 'confluence.desc.fundingPositive'
+            : 'confluence.desc.fundingNegative';
           contributions.push({
             signal: `Funding Rate: ${(funding * 100).toFixed(3)}%`,
             direction: funding > 0 ? 'bearish' : 'bullish',
             baseModifier: fundingLR,
             appliedModifier: fundingLR,
-            description: `Perpetual funding rate ${funding > 0 ? 'positive (bearish contrarian)' : 'negative (bullish contrarian)'}`,
+            description: this.translate.instant(fundingDescKey),
           });
         }
       }
@@ -689,29 +738,25 @@ export class ConfluenceService {
   ): number {
     // Passive Flow Override for mega-caps and ETFs
     if (MEGA_CAPS.has(ticker)) {
-      // Structural bid from passive flows tilts bullish
       if (pBullish > 0.50) {
         pBullish *= 1.1;
-        overrides.push('Passive Flow ×1.1 (mega-cap/ETF structural bid)');
+        overrides.push(this.translate.instant('confluence.overrides.passiveFlowBullish'));
       } else if (pBullish < 0.50) {
         pBullish *= 0.9;
-        overrides.push('Passive Flow ×0.9 (mega-cap/ETF bearish resistance)');
+        overrides.push(this.translate.instant('confluence.overrides.passiveFlowBearish'));
       }
       pBullish = clamp(pBullish, 0.05, 0.95);
     }
 
     // 0DTE Gamma Override: M/W/F intraday — ONLY for US equities/ETFs
-    // with active 0DTE options. Forex (24/5), crypto (24/7), commodities,
-    // and international stocks do NOT have 0DTE gamma effects.
-    const dow = new Date().getUTCDay(); // 1=Mon, 3=Wed, 5=Fri
+    const dow = new Date().getUTCDay();
     if (US_OPTIONS_UNDERLYINGS.has(ticker) && (dow === 1 || dow === 3 || dow === 5)) {
       if (candles.length >= 2) {
         const intervalMs = (candles[1].time - candles[0].time) * 1000;
         const hours = intervalMs / (1000 * 60 * 60);
-        // Skip for daily (24h) and weekly (168h) data
         if (hours > 0 && hours < 24) {
           pBullish = pBullish * 0.7 + 0.50 * 0.3;
-          overrides.push('0DTE Gamma: intraday signals neutralized (M/W/F)');
+          overrides.push(this.translate.instant('confluence.overrides.zeroDteGamma'));
         }
       }
     }
@@ -838,6 +883,39 @@ export class ConfluenceService {
 
     return { stopLoss, takeProfit, riskRewardRatio: rrRatio, positionSize };
   }
+
+  /** Format a pattern type + grade label using translated pattern names */
+  private formatPatternLabel(type: string, grade: string): string {
+    const keyMap: Record<string, string> = {
+      double_top: 'pattern.doubleTop',
+      double_bottom: 'pattern.doubleBottom',
+      head_and_shoulders: 'pattern.headAndShoulders',
+      inverse_head_and_shoulders: 'pattern.inverseHeadAndShoulders',
+      doji: 'pattern.doji',
+      hammer: 'pattern.hammer',
+      shooting_star: 'pattern.shootingStar',
+      bullish_engulfing: 'pattern.bullishEngulfing',
+      bearish_engulfing: 'pattern.bearishEngulfing',
+      morning_star: 'pattern.morningStar',
+      evening_star: 'pattern.eveningStar',
+      bullish_harami: 'pattern.bullishHarami',
+      bearish_harami: 'pattern.bearishHarami',
+      three_white_soldiers: 'pattern.threeWhiteSoldiers',
+      three_black_crows: 'pattern.threeBlackCrows',
+    };
+    const key = keyMap[type];
+    const label = key ? (this.translate.instant(key) ?? type) : type;
+    return `${label} (${grade})`;
+  }
+
+  /** Build i18n key for SMC signal description */
+  private smcDescriptionKey(type: string, direction: string): string {
+    const prefix = 'confluence.smc.';
+    if (type === 'BOS') return direction === 'bullish' ? `${prefix}bosBullish` : `${prefix}bosBearish`;
+    if (type === 'CHoCH') return direction === 'bullish' ? `${prefix}chochBullish` : `${prefix}chochBearish`;
+    if (type === 'LIQUIDITY_SWEEP') return direction === 'bullish' ? `${prefix}sweepBullish` : `${prefix}sweepBearish`;
+    return `${prefix}bosBullish`; // fallback
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -858,20 +936,17 @@ function computeAtrSync(candles: Candle[], period: number): number {
   return sum / period;
 }
 
-/** Build description for VIX adjustment applied to confluence */
-function applyVixAdjustment(
-  ctx: MarketContext,
-  contributions: SignalContribution[],
-): string | null {
-  switch (ctx.vixLevel) {
+/** Return i18n key for VIX adjustment message, or null if no adjustment needed */
+function applyVixAdjustmentKey(vixLevel: string): string | null {
+  switch (vixLevel) {
     case 'extreme':
-      return 'VIX > 30 — fear dominates technicals, all signals neutralized (log-LR × 0.5)';
+      return 'confluence.desc.vixExtreme';
     case 'high':
-      return 'VIX 20-30 — elevated fear, signals moderately reduced';
+      return 'confluence.desc.vixHigh';
     case 'low':
-      return 'VIX < 12 — complacency, trends likely to persist (slight boost)';
+      return 'confluence.desc.vixLow';
     default:
-      return null; // Normal VIX — no adjustment message needed
+      return null;
   }
 }
 
@@ -885,27 +960,6 @@ function pToDirection(p: number): ConfluenceDirection {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function formatPatternLabel(type: string, grade: string): string {
-  const labels: Record<string, string> = {
-    double_top: 'Double Top',
-    double_bottom: 'Double Bottom',
-    head_and_shoulders: 'Head & Shoulders',
-    inverse_head_and_shoulders: 'Inv. Head & Shoulders',
-    doji: 'Doji',
-    hammer: 'Hammer',
-    shooting_star: 'Shooting Star',
-    bullish_engulfing: 'Bullish Engulfing',
-    bearish_engulfing: 'Bearish Engulfing',
-    morning_star: 'Morning Star',
-    evening_star: 'Evening Star',
-    bullish_harami: 'Bullish Harami',
-    bearish_harami: 'Bearish Harami',
-    three_white_soldiers: 'Three White Soldiers',
-    three_black_crows: 'Three Black Crows',
-  };
-  return `${labels[type] ?? type} (${grade})`;
 }
 
 function computeTier(p: number): { direction: ConfluenceDirection; tier: ConfidenceTier } {

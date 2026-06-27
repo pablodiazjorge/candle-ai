@@ -3,8 +3,126 @@
  * Covers: base rates, evidence modification, confidence tiers,
  * 2026 overrides, risk parameter computation, and boundary cases.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ─── Mock Angular inject() ────────────────────────────────────────
+
+const injectMocks = new Map<unknown, unknown>();
+
+vi.mock('@angular/core', async () => {
+  const actual = await vi.importActual('@angular/core');
+  return {
+    ...actual,
+    inject: vi.fn((token: unknown) => {
+      if (injectMocks.has(token)) return injectMocks.get(token);
+      throw new Error(`No mock for inject(${String(token)})`);
+    }),
+  };
+});
+
+// ─── Mock @ngx-translate/core ─────────────────────────────────────
+
+/**
+ * Simple translation map for test use — covers all i18n keys used by
+ * ConfluenceService so tests receive English text instead of raw keys.
+ */
+const TRANSLATIONS_EN: Record<string, string> = {
+  // ── regime ──
+  'regime.strong_uptrend': 'Strong Uptrend',
+  'regime.weak_uptrend': 'Weak Uptrend',
+  'regime.ranging': 'Ranging',
+  'regime.weak_downtrend': 'Weak Downtrend',
+  'regime.strong_downtrend': 'Strong Downtrend',
+  'regime.transitional': 'Transitional',
+  // ── confluence labels ──
+  'confluence.marketRegime': 'Market Regime',
+  'confluence.regimeAligned': 'regime-aligned',
+  'confluence.regimeCounter': 'counter-regime',
+  'confluence.neutralContext': 'neutral context',
+  'confluence.volumeSignal': 'Volume: {{type}}',
+  'confluence.volumePressure': 'Volume Pressure',
+  'confluence.smcSignal': 'SMC: {{desc}}',
+  'confluence.rsiBullishDivergence': 'RSI Bullish Divergence',
+  'confluence.rsiBearishDivergence': 'RSI Bearish Divergence',
+  'confluence.macdBullishCrossover': 'MACD Bullish Crossover',
+  'confluence.macdBearishCrossover': 'MACD Bearish Crossover',
+  // ── confluence desc ──
+  'confluence.desc.regimeBase': 'Base rate from regime classification (ADX={{adx}}, SMA={{sma}}, Structure={{structure}})',
+  'confluence.desc.regimeNoData': 'No regime data — neutral base rate (50% bullish).',
+  'confluence.desc.patternWithRegime': '{{pattern}} — {{alignment}}, grade {{grade}} (×{{multiplier}}), decay {{decay}}%{{cluster}}',
+  'confluence.desc.patternNoRegime': '{{pattern}} — neutral context, grade {{grade}}, decay {{decay}}%',
+  'confluence.desc.smcWithRegime': '{{desc}} — {{alignment}}, strength {{strength}}%',
+  'confluence.desc.smcNoRegime': '{{desc}} — neutral context',
+  'confluence.desc.rsiAligned': 'Price-RSI divergence — regime-aligned',
+  'confluence.desc.rsiCounter': 'Price-RSI divergence — counter-regime',
+  'confluence.desc.rsiNeutral': 'Price-RSI divergence — neutral context',
+  'confluence.desc.macdAligned': 'MACD line crossed signal — regime-aligned',
+  'confluence.desc.macdCounter': 'MACD line crossed signal — counter-regime',
+  'confluence.desc.macdNeutral': 'MACD crossover — neutral context',
+  'confluence.desc.volume': '{{desc}} (delta: {{delta}}, strength: {{strength}}%)',
+  'confluence.desc.climaxBuyUptrend': 'Buy climax in uptrend — distribution (bearish)',
+  'confluence.desc.climaxBuyDowntrend': 'Buy climax in downtrend — capitulation (bullish)',
+  'confluence.desc.climaxSellUptrend': 'Sell climax in uptrend — distribution (bearish)',
+  'confluence.desc.climaxSellDowntrend': 'Sell climax in downtrend — capitulation (bullish)',
+  'confluence.desc.buyPressure': 'Buy-side volume pressure — weak confirm',
+  'confluence.desc.sellPressure': 'Sell-side volume pressure — weak contradict',
+  'confluence.desc.noDirection': 'No directional volume signal — slight reduce',
+  'confluence.desc.vixExtreme': 'VIX > 30 — fear dominates technicals',
+  'confluence.desc.vixHigh': 'VIX 20-30 — elevated fear',
+  'confluence.desc.vixLow': 'VIX < 12 — complacency',
+  'confluence.desc.dxyForex': 'Forex major — DXY inverse structural relationship ({{logLR}} logLR)',
+  'confluence.desc.dxyCorrelation': 'DXY 30d correlation with {{ticker}}: {{pct}}%',
+  'confluence.desc.fundingPositive': 'Perpetual funding rate positive (bearish contrarian)',
+  'confluence.desc.fundingNegative': 'Perpetual funding rate negative (bullish contrarian)',
+  // ── confluence smc ──
+  'confluence.smc.bosBullish': 'Bullish BOS: broke above swing high ${{price}}',
+  'confluence.smc.bosBearish': 'Bearish BOS: broke below swing low ${{price}}',
+  'confluence.smc.chochBullish': 'Bullish CHoCH: downtrend broke structure at ${{price}}',
+  'confluence.smc.chochBearish': 'Bearish CHoCH: uptrend broke structure at ${{price}}',
+  'confluence.smc.sweepBullish': 'Bullish sweep: liquidity grab below ${{price}}, closed above',
+  'confluence.smc.sweepBearish': 'Bearish sweep: liquidity grab above ${{price}}, closed below',
+  // ── confluence overrides ──
+  'confluence.overrides.passiveFlowBullish': 'Passive Flow ×1.1 (mega-cap/ETF structural bid)',
+  'confluence.overrides.passiveFlowBearish': 'Passive Flow ×0.9 (mega-cap/ETF bearish resistance)',
+  'confluence.overrides.zeroDteGamma': '0DTE Gamma: intraday signals neutralized (M/W/F)',
+  // ── patterns ──
+  'pattern.doubleTop': 'Double Top',
+  'pattern.doubleBottom': 'Double Bottom',
+  'pattern.headAndShoulders': 'Head & Shoulders',
+  'pattern.inverseHeadAndShoulders': 'Inv. Head & Shoulders',
+  'pattern.doji': 'Doji',
+  'pattern.hammer': 'Hammer',
+  'pattern.shootingStar': 'Shooting Star',
+  'pattern.bullishEngulfing': 'Bullish Engulfing',
+  'pattern.bearishEngulfing': 'Bearish Engulfing',
+  'pattern.morningStar': 'Morning Star',
+  'pattern.eveningStar': 'Evening Star',
+  'pattern.bullishHarami': 'Bullish Harami',
+  'pattern.bearishHarami': 'Bearish Harami',
+  'pattern.threeWhiteSoldiers': 'Three White Soldiers',
+  'pattern.threeBlackCrows': 'Three Black Crows',
+};
+
+const mockTranslateService = {
+  instant: vi.fn((key: string, params?: Record<string, string>): string => {
+    const template = TRANSLATIONS_EN[key] ?? key;
+    if (params) {
+      return template.replace(/\{\{(\w+)\}\}/g, (_, name) => params[name] ?? `{{${name}}}`);
+    }
+    return template;
+  }),
+  currentLang: vi.fn(() => 'en'),
+  use: vi.fn(),
+  get: vi.fn(),
+  stream: vi.fn(),
+};
+
+vi.mock('@ngx-translate/core', () => ({
+  TranslateService: vi.fn(() => mockTranslateService),
+}));
+
 import { ConfluenceService } from './confluence.service';
+import { TranslateService } from '@ngx-translate/core';
 import { Candle } from '../models/candle.model';
 import { DetectedPattern } from '../models/pattern.model';
 import { IndicatorResults, RegimeResult, MarketRegime } from '../models/indicator.model';
@@ -70,6 +188,9 @@ function makeIndicators(overrides: Partial<IndicatorResults> = {}): IndicatorRes
 // ─── Tests ─────────────────────────────────────────────────────────
 
 describe('ConfluenceService', () => {
+  // Mock TranslateService for DI — simple pass-through (returns keys as values)
+  injectMocks.set(TranslateService, mockTranslateService);
+
   const service = new ConfluenceService();
 
   describe('base rate from regime', () => {
