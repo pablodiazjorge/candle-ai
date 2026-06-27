@@ -17,11 +17,6 @@ export class LlmSettingsStore {
   readonly activePresetName = signal<string>(this.loadPresetName());
 
   // --- Computed ---
-  readonly isConfigured = computed(() => {
-    const c = this.activeConfig();
-    return c.baseUrl.length > 0 && c.model.length > 0;
-  });
-
   readonly hasApiKey = computed(() => {
     return this.activeConfig().apiKey.length > 0;
   });
@@ -35,6 +30,27 @@ export class LlmSettingsStore {
   readonly isLocalProviderInProduction = computed(() => {
     const config = this.activeConfig();
     return !!config.isLocalOnly && isProductionOrigin();
+  });
+
+  /** True when the active provider is a local-only provider */
+  readonly isLocalProvider = computed(() => {
+    return !!this.activeConfig().isLocalOnly;
+  });
+
+  /**
+   * True when the active config has the minimum required fields.
+   * For cloud providers, an API key is required.
+   * For local providers, only baseUrl + model are required.
+   */
+  readonly isConfigured = computed(() => {
+    const c = this.activeConfig();
+    const hasBase = c.baseUrl.length > 0;
+    const hasModel = c.model.length > 0;
+    if (!hasBase || !hasModel) return false;
+    // Local providers don't need a real API key
+    if (c.isLocalOnly) return true;
+    // Cloud providers need an API key
+    return c.apiKey.length > 0;
   });
 
   // --- Actions ---

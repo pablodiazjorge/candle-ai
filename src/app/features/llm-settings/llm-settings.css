@@ -448,63 +448,50 @@
   color: var(--color-red);
 }
 
-/* === Info Callout === */
-.info-callout {
+/* === Unified Callout (replaces info-callout, warning-callout, status-msg.hint) === */
+
+.callout {
   display: flex;
   gap: 10px;
   align-items: flex-start;
   padding: 12px 14px;
-  background: rgba(160, 160, 160, 0.06);
-  border-left: 3px solid var(--color-text-secondary);
-  border-radius: 4px;
-  margin-top: 4px;
-}
-
-.info-callout-icon {
-  font-size: 1.75rem;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.info-callout p {
-  font-size: 0.75rem; /* 12px */
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.info-callout code {
-  font-family: var(--font-mono);
-  font-size: 0.75rem; /* 12px */
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-/* === Warning Callout (production + local provider) === */
-.warning-callout {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 12px 14px;
-  background: rgba(245, 158, 11, 0.12);
-  border-left: 3px solid var(--color-yellow, #f59e0b);
+  border-left: 3px solid;
   border-radius: 4px;
   margin-top: 12px;
+  font-size: 0.75rem; /* 12px */
+  line-height: 1.5;
 }
 
-.warning-callout-icon {
-  font-size: 1.75rem;
+.callout-icon {
+  font-size: 1.5rem;
   flex-shrink: 0;
   margin-top: 1px;
-  color: var(--color-yellow, #f59e0b);
 }
 
-.warning-callout p {
-  font-size: 0.75rem; /* 12px */
-  color: var(--color-yellow, #f59e0b);
+.callout p {
   margin: 0;
-  line-height: 1.5;
+}
+
+/* Variant: info (gray) — local provider in dev */
+.callout-info {
+  background: rgba(160, 160, 160, 0.06);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-secondary);
+}
+
+/* Variant: warning (orange) — local provider in production */
+.callout-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: var(--color-yellow, #f59e0b);
+  color: var(--color-yellow, #f59e0b);
+  font-weight: 500;
+}
+
+/* Variant: hint (blue) — cloud provider without API key */
+.callout-hint {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--color-blue, #3b82f6);
+  color: var(--color-blue, #3b82f6);
   font-weight: 500;
 }
 

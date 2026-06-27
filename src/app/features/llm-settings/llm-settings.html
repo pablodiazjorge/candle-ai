@@ -79,7 +79,9 @@
           <div>
             <label class="field-label" for="llm-api-key">
               {{ 'llm.apiKey' | translate }}
-              <span class="field-hint">{{ 'llm.optional' | translate }}</span>
+              @if (store.isLocalProvider()) {
+                <span class="field-hint">{{ 'llm.optional' | translate }}</span>
+              }
             </label>
             <div class="api-key-wrapper">
               <input
@@ -174,19 +176,29 @@
           </p>
         }
 
-        <!-- Production warning: local providers cannot work remotely -->
+        <!--
+          Smart context-aware callout — only ONE shown at a time:
+          - Local provider in production → orange warning (CORS / ngrok)
+          - Local provider in dev       → gray info (local server tip)
+          - Cloud provider without key  → blue hint (get API key)
+          - Cloud provider with key     → nothing (ready to test)
+        -->
         @if (store.isLocalProviderInProduction()) {
-          <div class="warning-callout" role="alert">
-            <i class="ph ph-warning warning-callout-icon" aria-hidden="true"></i>
+          <div class="callout callout-warning" role="alert">
+            <i class="ph ph-warning callout-icon" aria-hidden="true"></i>
             <p>{{ 'llm.localInProductionWarning' | translate }}</p>
           </div>
+        } @else if (store.isLocalProvider()) {
+          <div class="callout callout-info" role="note">
+            <i class="ph ph-info callout-icon" aria-hidden="true"></i>
+            <p>{{ 'llm.localInfo' | translate }}</p>
+          </div>
+        } @else if (!store.hasApiKey()) {
+          <div class="callout callout-hint" role="note">
+            <i class="ph ph-key callout-icon" aria-hidden="true"></i>
+            <p>{{ 'llm.apiKeyRequired' | translate }}</p>
+          </div>
         }
-
-        <!-- Info about local servers -->
-        <div class="info-callout" role="note">
-          <i class="ph ph-info info-callout-icon" aria-hidden="true"></i>
-          <p>{{ 'llm.localInfo' | translate }}</p>
-        </div>
       </div>
     </div>
   </div>

@@ -70,7 +70,7 @@ export class LlmSettings {
         config.model,
         config.maxTokens,
         config.temperature,
-        LlmProvider.shouldUseProxy(),
+        LlmProvider.shouldUseProxy(config.baseUrl),
       );
       const ok = await provider.healthCheck();
       this.connectionStatus.set(ok ? 'success' : 'error');

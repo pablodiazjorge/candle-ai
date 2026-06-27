@@ -49,15 +49,24 @@ export class LlmProvider {
 
   /**
    * Detect if we need to proxy LLM requests to avoid CORS issues.
-   * In local development (localhost origin), direct calls work fine
-   * because Ollama runs locally or the Angular proxy handles routing.
-   * In production, we must go through the Vercel Edge Function at /api/llm
-   * because LLM APIs do NOT set CORS headers.
+   *
+   * NEVER proxy localhost/127.0.0.1 URLs — the Vercel function can't
+   * reach the user's machine. For local Ollama/llama.cpp, the browser
+   * must call directly (localhost is a secure context, so mixed content
+   * isn't blocked). The user just needs OLLAMA_ORIGINS=* for CORS.
+   *
+   * Cloud APIs (OpenAI, DeepSeek, Groq, etc.) do NOT set CORS headers,
+   * so in production we route through the Vercel proxy at /api/llm.
    */
-  static shouldUseProxy(): boolean {
+  static shouldUseProxy(baseUrl: string): boolean {
     if (typeof window === 'undefined') return false;
-    const origin = window.location.hostname;
-    return origin !== 'localhost' && origin !== '127.0.0.1' && !origin.startsWith('192.168.');
+    // Never proxy local addresses — the proxy can't reach the user's machine
+    if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+      return false;
+    }
+    // In production (non-localhost origin), proxy cloud APIs
+    const hostname = window.location.hostname;
+    return hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.');
   }
 
   /** Proxy URL used when shouldUseProxy() is true */
