@@ -160,11 +160,17 @@ export class App implements OnInit {
 
   /** Run pattern detection on candle data, then compute confluence */
   private detectPatterns(candles: Candle[]): void {
-    const candlestickPatterns = this.patternsService.detectAll(candles);
-    const chartPatterns = this.patternsService.detectChartPatterns(candles);
+    // Detection window = 240 candles (60 chart lookback × 4).
+    // Covers the longest-forming pattern (H&S ~50 candles) with buffer.
+    // Patterns outside this window are discarded by temporal decay anyway.
+    const detectionWindow = Math.min(candles.length, 240);
+    const detectionCandles = candles.slice(-detectionWindow);
+
+    const candlestickPatterns = this.patternsService.detectAll(detectionCandles);
+    const chartPatterns = this.patternsService.detectChartPatterns(detectionCandles);
     const graded = this.gradingService.gradeAll(
       [...candlestickPatterns, ...chartPatterns],
-      candles,
+      candles, // Full candles needed for grading context (S/R levels, volume avg)
     );
     this.store.setPatterns(graded);
     this.computeConfluence(candles);
