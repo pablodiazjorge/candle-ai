@@ -267,7 +267,10 @@ export class App implements OnInit {
   }
 
   get isLoading(): boolean {
-    return this.marketData.loading() || this.indicatorsService.computing();
+    // Only show loading overlay for initial market data fetch.
+    // Indicator recomputation is a background operation — the web worker
+    // completes in ~10-50ms and should not trigger the full-viewport blur.
+    return this.marketData.loading();
   }
 
   get currentLang(): string {
