@@ -440,8 +440,9 @@ context.
 **Consequences.**
 Services that depend on Angular DI (TickerStore, AnalysisService) are
 not unit-tested in isolation. They are covered by the pure-function tests
-of their underlying algorithms. Integration tests would require TestBed
-or a component test harness, which is left as future work.
+of their underlying algorithms. End-to-end integration tests use Playwright
+(`e2e/critical-flow.spec.ts`, 5 tests) with mocked Yahoo Finance API responses
+for deterministic critical-flow validation (see ADR-017). Error monitoring via `@sentry/angular` was evaluated and rejected (2026-06-27): the SDK officially supports Angular 14–20, while the project uses Angular 22. For a client-only application without a backend, the browser console provides sufficient error visibility. This decision may be revisited if Angular 22 enters the official support range.
 
 ---
 
@@ -625,6 +626,42 @@ architecture: (1) Confluence Engine — deterministic, always on, no config;
 - [`docs/confluence-engine.md`](confluence-engine.md) serves as the
   authoritative technical reference
 
+### ADR-017: Weekly Context as Badge, Not Separate Chart (2026-06-27)
+
+**Context.**
+Epic 8 implemented multi-timeframe synthesis: weekly candle data is fetched
+in parallel with daily data, and the Confluence Engine scores both timeframes
+independently. The natural extension was to render a side-by-side chart
+layout (daily above, weekly below) for visual comparison.
+
+A prototype was built and tested. The side-by-side layout introduced several
+problems: it halved the vertical space for each chart, making candlestick
+patterns harder to read; it added visual noise without improving analytical
+clarity; and it created a maintenance burden (two chart instances to theme,
+resize, and configure).
+
+**Decision.**
+Keep a single chart for daily data. Weekly context is computed in the
+background and displayed as a compact badge in the analysis dashboard
+showing the weekly confluence tier and direction. No second chart.
+
+**Rationale.**
+The Confluence Engine already synthesizes multi-timeframe signals into a
+single confidence tier. The weekly badge tells the user what they need to
+know — "this daily pattern aligns with (or contradicts) the weekly trend" —
+without the cognitive load of comparing two charts. This aligns with Principle
+4 (Progressive Enhancement): weekly data enriches the analysis without
+cluttering the UI.
+
+**Consequences.**
+- `TickerStore.weeklyCandleData`, `weeklyRegime`, `weeklyConfluence`, and
+  `hasWeeklyContext` remain in the store for the data pipeline.
+- `CandleChart` component renders a single chart instance.
+- `AnalysisDashboard` shows a `weekly-context-badge` when weekly data is
+  available.
+- No second `CandleChart` instance, no split-pane CSS, no chart
+  synchronization logic to maintain.
+
 ---
 
 ## Component Architecture
@@ -725,7 +762,10 @@ for daily and swing trading analysis, not high-frequency or intraday scalping.
 
 **Single-chart layout.**
 The app displays one ticker at a time. Multi-chart layouts (e.g., comparing
-SPY vs QQQ) are not supported in this version.
+SPY vs QQQ) are not supported. Weekly timeframe data is loaded in the
+background and scored independently by the Confluence Engine — the result
+appears as a context badge in the analysis dashboard rather than a
+second chart. See ADR-017 for rationale.
 
 ---
 

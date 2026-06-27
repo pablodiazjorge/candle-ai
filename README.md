@@ -4,6 +4,7 @@
 Local-first. Zero backend. Runs in your browser.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Built with prompt-forge](https://img.shields.io/badge/built%20with-prompt--forge-6e5de7.svg)](https://github.com/pablodiazjorge/prompt-forge)
 
 ---
 
@@ -118,7 +119,6 @@ src/app/
 │   ├── llm-settings/    # Provider configuration panel
 │   └── export-panel/    # Pine Script v5 code generation + TradingView deep link
 └── shared/
-    └── components/      # Reusable UI primitives
 ```
 
 ---
@@ -131,6 +131,10 @@ Fetches OHLCV candles from Yahoo Finance via `/api/yahoo/v8/finance/chart/{symbo
 (proxied through the Angular dev server in development; Vercel rewrites in production).
 Caches results in IndexedDB with a 1-hour TTL. Falls back to per-ticker
 synthetic data when Yahoo Finance is unreachable.
+
+Weekly timeframe data is loaded in the background and scored independently by the
+Confluence Engine. The weekly result appears as a context badge in the analysis
+dashboard — no separate chart needed.
 
 ### Technical Indicators (Web Worker)
 

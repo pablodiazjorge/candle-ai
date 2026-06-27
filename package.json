@@ -10,7 +10,11 @@
     "test": "ng test",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "analyze:bundle": "ng build --stats-json",
+    "analyze:bundle:open": "ng build --stats-json && npx source-map-explorer dist/candle-ai/browser/*.js --html bundle-report.html --no-open",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui"
   },
   "private": true,
   "packageManager": "npm@10.9.8",
@@ -36,6 +40,7 @@
     "@angular/build": "^22.0.3",
     "@angular/cli": "^22.0.3",
     "@angular/compiler-cli": "^22.0.0",
+    "@playwright/test": "^1.61.1",
     "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.1.1",
     "prettier": "^3.8.1",
