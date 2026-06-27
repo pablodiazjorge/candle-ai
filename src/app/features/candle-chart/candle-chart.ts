@@ -136,7 +136,7 @@ export class CandleChart implements AfterViewInit, OnDestroy {
 
     this.chart = createChart(container, {
       layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
+        background: { type: ColorType.Solid, color: isDark ? 'transparent' : '#ffffff' },
         textColor: isDark ? '#94a3b8' : '#334155',
       },
       grid: {
@@ -179,7 +179,10 @@ export class CandleChart implements AfterViewInit, OnDestroy {
   private applyTheme(isDark: boolean): void {
     if (!this.chart) return;
     this.chart.applyOptions({
-      layout: { textColor: isDark ? '#94a3b8' : '#334155' },
+      layout: {
+        background: { type: ColorType.Solid, color: isDark ? 'transparent' : '#ffffff' },
+        textColor: isDark ? '#94a3b8' : '#334155',
+      },
       grid: {
         vertLines: { color: isDark ? '#1e2130' : '#e2e8f0' },
         horzLines: { color: isDark ? '#1e2130' : '#e2e8f0' },
