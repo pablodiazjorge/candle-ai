@@ -33,3 +33,15 @@ export interface DetectedPattern {
   /** Human-readable label (i18n key) */
   labelKey: string;
 }
+
+/** Smart Money Concept signal detected from market structure */
+export interface SMCSignal {
+  type: 'BOS' | 'CHoCH' | 'LIQUIDITY_SWEEP';
+  direction: 'bullish' | 'bearish';
+  /** Signal strength 0-1 */
+  strength: number;
+  /** Price level of the swing point being broken/swept */
+  price: number;
+  /** Human-readable description for UI */
+  description: string;
+}

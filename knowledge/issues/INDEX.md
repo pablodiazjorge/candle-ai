@@ -10,9 +10,9 @@
 | Status | Count |
 |--------|-------|
 | 🔴 Open (pending) | 0 |
-| 🟢 Promoted | 5 |
+| 🟢 Promoted | 6 |
 | ⚫ Discarded | 1 |
-| **Total** | **6** |
+| **Total** | **7** |
 
 ---
 
@@ -37,6 +37,7 @@
 | ISSUE-20260624-3772 | TS isolatedModules requires `export type` for type re-exports | library-api | /memories/library-api-versions.md | 1 | 2026-06-27 |
 | ISSUE-20260624-534f | Angular templates: getters without (), signals with () | angular | /memories/angular-pitfalls.md | 2 | 2026-06-27 |
 | ISSUE-20260624-b91f | TS bracket notation for JSON.parse() results | library-api | /memories/library-api-versions.md | 1 | 2026-06-27 |
+| ISSUE-20260627-9434 | TS2869: Optional chaining on non-nullable array access rejects ?? fallback | library-api | /memories/library-api-versions.md | 2 | 2026-06-27 |
 
 ---
 

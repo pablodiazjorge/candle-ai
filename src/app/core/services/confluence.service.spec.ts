@@ -49,8 +49,11 @@ function makePattern(
   type: string,
   sentiment: 'bullish' | 'bearish' | 'neutral',
   grade: 'A' | 'B' | 'C' | 'D' = 'B',
+  candleIndex = 28, // Default: near end of 30-candle array (daysAgo ≈ 1)
 ): DetectedPattern {
-  return { type: type as any, time: 1700086400, sentiment, confidence: 0.75, grade, labelKey: `pattern.${type}` };
+  // timestamps match makeCandles: 1700000000 + i * 86400
+  const time = 1700000000 + candleIndex * 86400;
+  return { type: type as any, time, sentiment, confidence: 0.75, grade, labelKey: `pattern.${type}` };
 }
 
 function makeIndicators(overrides: Partial<IndicatorResults> = {}): IndicatorResults {
@@ -58,7 +61,7 @@ function makeIndicators(overrides: Partial<IndicatorResults> = {}): IndicatorRes
     rsi: null, macd: null, bb: null,
     sma20: null, sma50: null, sma200: null,
     ema9: null, ema21: null, volumeProfile: null,
-    adx: null, regime: null,
+    adx: null, atr: null, regime: null,
     volumeClimax: null, volumeDryUp: null, volumeDivergence: null,
     ...overrides,
   };
@@ -115,17 +118,17 @@ describe('ConfluenceService', () => {
       expect(hns!.description).toContain('counter-regime');
     });
 
-    it('grade C/D chart patterns are treated as B for scoring', () => {
-      const patternsA = [makePattern('double_top', 'bearish', 'C')];
-      const patternsB = [makePattern('double_top', 'bearish', 'D')];
-      const resultA = service.score(
-        makeRegime('weak_downtrend'), patternsA, null, makeCandles(30, 'down'), 'TEST',
+    it('grade C/D chart patterns have different weights (V2)', () => {
+      const patternsC = [makePattern('double_top', 'bearish', 'C')];
+      const patternsD = [makePattern('double_top', 'bearish', 'D')];
+      const resultC = service.score(
+        makeRegime('weak_downtrend'), patternsC, null, makeCandles(30, 'down'), 'TEST',
       );
-      const resultB = service.score(
-        makeRegime('weak_downtrend'), patternsB, null, makeCandles(30, 'down'), 'TEST',
+      const resultD = service.score(
+        makeRegime('weak_downtrend'), patternsD, null, makeCandles(30, 'down'), 'TEST',
       );
-      // Both C and D should apply the same B-tier modifier
-      expect(resultA.probability).toBeCloseTo(resultB.probability, 2);
+      // V2: Grade C (0.3×) has 3× the weight of Grade D (0.1×)
+      expect(resultC.probability).toBeLessThan(resultD.probability); // C is more bearish = lower P
     });
   });
 
@@ -208,56 +211,56 @@ describe('ConfluenceService', () => {
     });
   });
 
-  describe('volume multiplier', () => {
-    it('volume climax with patterns = confirmation', () => {
+  describe('volume analysis (V2 directional)', () => {
+    it('volume climax at last candle = buy_climax signal', () => {
+      const lastCandleTime = 1700000000 + 29 * 86400; // last candle in 30-candle array
       const indicators = makeIndicators({
-        volumeClimax: { spikes: [{ time: 1700086400, ratio: 2.8 }] },
+        volumeClimax: { spikes: [{ time: lastCandleTime, ratio: 3.0 }] },
       });
       const patterns = [makePattern('hammer', 'bullish', 'B')];
 
       const result = service.score(
-        makeRegime('weak_uptrend'), patterns, indicators, makeCandles(30), 'TEST',
+        makeRegime('weak_uptrend'), patterns, indicators, makeCandles(30, 'up'), 'TEST',
       );
-      expect(result.contributingSignals.some((s) => s.signal === 'Volume Confirmation')).toBe(true);
+      const volSignal = result.contributingSignals.find((s) =>
+        s.signal.toLowerCase().includes('volume'));
+      expect(volSignal).toBeDefined();
     });
 
-    it('no volume signals but indicators active = volume absent', () => {
-      // Active volume indicators but no signals detected
+    it('active but empty climax = still produces volume pressure', () => {
       const indicators: IndicatorResults = {
-        rsi: null, macd: null, bb: null,
-        sma20: null, sma50: null, sma200: null,
-        ema9: null, ema21: null, volumeProfile: null,
-        adx: null, regime: null,
-        volumeClimax: { spikes: [] }, // active but empty
+        ...makeIndicators(),
+        volumeClimax: { spikes: [] },
         volumeDryUp: null,
         volumeDivergence: null,
       };
       const result = service.score(
         makeRegime('ranging'), [makePattern('doji', 'neutral')], indicators, makeCandles(30), 'TEST',
       );
-      expect(result.contributingSignals.some((s) => s.signal === 'Volume Absent')).toBe(true);
+      const volSignal = result.contributingSignals.find((s) =>
+        s.signal.toLowerCase().includes('volume'));
+      expect(volSignal).toBeDefined();
     });
 
-    it('volume divergence opposing dominant patterns = contradict', () => {
-      const indicators = makeIndicators({
-        volumeDivergence: { divergences: [{ time: 1700086400, type: 'bearish' }] },
-      });
-      const patterns = [makePattern('bullish_engulfing', 'bullish', 'A')];
-
+    it('no volume indicators active = no volume signal', () => {
       const result = service.score(
-        makeRegime('weak_uptrend'), patterns, indicators, makeCandles(30), 'TEST',
+        makeRegime('ranging'), [], null, makeCandles(30), 'TEST',
       );
-      expect(result.contributingSignals.some((s) => s.signal === 'Volume Contradiction')).toBe(true);
+      const volSignal = result.contributingSignals.find((s) =>
+        s.signal.toLowerCase().includes('volume'));
+      expect(volSignal).toBeUndefined();
     });
   });
 
   describe('confidence tier calculation', () => {
-    it('P >= 0.75 → HIGH bullish', () => {
-      // Use strong regime + multiple bullish patterns to push P > 0.75
+    it('P >= 0.72 → HIGH bullish', () => {
+      // Bayesian converges conservatively — need several grade A signals
       const patterns = [
         makePattern('double_bottom', 'bullish', 'A'),
         makePattern('bullish_engulfing', 'bullish', 'A'),
         makePattern('morning_star', 'bullish', 'A'),
+        makePattern('bullish_harami', 'bullish', 'A'),
+        makePattern('three_white_soldiers', 'bullish', 'A'),
       ];
       const result = service.score(
         makeRegime('strong_uptrend'), patterns, null, makeCandles(30, 'up'), 'TEST',
@@ -266,8 +269,11 @@ describe('ConfluenceService', () => {
       expect(result.direction).toBe('bullish');
     });
 
-    it('P between 0.60-0.749 → MEDIUM', () => {
-      const patterns = [makePattern('hammer', 'bullish', 'B')];
+    it('P between 0.58-0.719 → MEDIUM', () => {
+      const patterns = [
+        makePattern('hammer', 'bullish', 'A'),
+        makePattern('bullish_engulfing', 'bullish', 'A'),
+      ];
       const result = service.score(
         makeRegime('weak_uptrend'), patterns, null, makeCandles(30, 'up'), 'TEST',
       );
@@ -291,10 +297,10 @@ describe('ConfluenceService', () => {
       expect(result.tier).toBe('NEUTRAL');
     });
 
-    it('P <= 0.25 → MEDIUM bearish', () => {
+    it('P >= 0.18 and < 0.28 → MEDIUM bearish (V2)', () => {
       const patterns = [
-        makePattern('double_top', 'bearish', 'A'),
         makePattern('bearish_engulfing', 'bearish', 'A'),
+        makePattern('evening_star', 'bearish', 'A'),
       ];
       const result = service.score(
         makeRegime('strong_downtrend'), patterns, null, makeCandles(30, 'down'), 'TEST',

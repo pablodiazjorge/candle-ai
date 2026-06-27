@@ -15,11 +15,11 @@
   },
   "welcome": {
     "title": "Bienvenido a Candle AI",
-    "desc": "Tu dashboard de análisis técnico con IA. Empieza en segundos:",
+    "desc": "Análisis de mercado con motor Confluence. Empieza en segundos:",
     "step1": "<strong>Busca</strong> un ticker (ej: AAPL, BTC-USD, SPY)",
     "step2": "<strong>Selecciona</strong> un timeframe en la barra superior",
     "step3": "<strong>Activa</strong> indicadores en el panel lateral",
-    "step4": "<strong>Ejecuta</strong> el análisis IA para obtener insights"
+    "step4": "<strong>Revisa</strong> el score de confluence — la narración IA es <em>opcional</em>"
   },
   "ticker": {
     "searchPlaceholder": "Buscar símbolo...",

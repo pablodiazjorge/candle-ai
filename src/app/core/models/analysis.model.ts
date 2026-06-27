@@ -99,3 +99,16 @@ export interface ConfluenceResult {
   /** Whether this result used 2026 market overrides */
   overridesApplied: string[];
 }
+
+// ─── Market Context (Epic 9 — Phase 4) ────────────────────────────
+
+export interface MarketContext {
+  /** VIX classification from latest close */
+  vixLevel: 'low' | 'normal' | 'high' | 'extreme';
+  /** Log-LR adjustment to apply to all signals */
+  vixAdjustment: number;
+  /** 30-day rolling correlation between ticker and DXY (-1 to 1) */
+  dxyCorrelation: number;
+  /** Current perpetual funding rate (crypto only, null for equities) */
+  fundingRate?: number;
+}

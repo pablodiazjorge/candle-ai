@@ -1,9 +1,10 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Candle } from '../models/candle.model';
 import { IndicatorResults, IndicatorSettings, RegimeResult, DEFAULT_INDICATOR_SETTINGS } from '../models/indicator.model';
 import { DetectedPattern, PatternType } from '../models/pattern.model';
-import { AnalysisResult, ConfluenceResult } from '../models/analysis.model';
+import { AnalysisResult, ConfluenceResult, MarketContext } from '../models/analysis.model';
 import { Timeframe, Range } from '../services/market-data.service';
+import { MarketContextService } from '../services/market-context.service';
 
 export interface TickerState {
   selectedTicker: string | null;
@@ -51,6 +52,10 @@ export class TickerStore {
   readonly activeIndicators = signal<IndicatorSettings>(initialState.activeIndicators);
   /** Set of pattern types currently visible on the chart */
   readonly visiblePatternTypes = signal<Set<PatternType>>(new Set());
+
+  // ── Epic 9: Cross-asset market context ──
+  readonly marketContext = signal<MarketContext | null>(null);
+  private readonly marketContextService = inject(MarketContextService);
 
   // --- Computed ---
 

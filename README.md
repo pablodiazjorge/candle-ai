@@ -1,9 +1,23 @@
 # Candle AI — Trading Analysis Dashboard
 
-A client-side technical analysis application with AI-powered market insights.
+**Confluence-powered technical analysis. Optional AI narration.**
 Local-first. Zero backend. Runs in your browser.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+---
+
+## How It Works
+
+Candle AI has a **two-layer architecture**:
+
+| Layer | What | Requires |
+|-------|------|----------|
+| **Confluence Engine** (always on) | Bayesian probabilistic scoring across 5 signal hierarchies. Detects 15 pattern types, market structure (SMC), volume context, and regime. Produces a confidence tier: `HIGH` / `MEDIUM` / `LOW` / `NEUTRAL`. | Nothing — runs locally, zero config |
+| **AI Narrative** (optional) | Natural language explanation of the confluence result. Answers "why is this signal HIGH confidence?" | Ollama (local) or cloud LLM provider |
+
+The Confluence Engine is the brain. The LLM is the narrator — it explains
+the output, never overrides it.
 
 ---
 
@@ -15,10 +29,11 @@ libraries (TA-Lib, pandas) that require programming expertise to get a chart on
 screen.
 
 Candle AI is the middle ground. It renders professional-grade candlestick charts
-with technical indicators, detects candlestick patterns, and generates natural
-language analysis via an LLM — all running locally in your browser. No accounts,
-no subscriptions, no data leaving your machine unless you explicitly configure a
-cloud LLM provider.
+with technical indicators, runs a deterministic confluence engine that scores
+patterns using Bayesian probability, and optionally generates natural language
+analysis via an LLM — all running locally in your browser. No accounts,
+no subscriptions, no data leaving your machine. The core analysis works
+immediately with zero configuration.
 
 The architecture is designed around five principles:
 
@@ -46,7 +61,7 @@ For the full rationale behind every architectural decision, see
 | Caching | Dexie.js (IndexedDB) | 1-hour TTL for market data |
 | Styling | Tailwind CSS 4 + CSS Custom Properties | Dark/light theme, responsive |
 | i18n | ngx-translate v18 | Runtime language switching (EN/ES) |
-| Testing | Vitest + jsdom | 42 unit tests, sub-second startup |
+| Testing | Vitest + jsdom | 160 tests (10 files), sub-second startup |
 
 ---
 
@@ -79,7 +94,7 @@ The default preset already points to `http://localhost:11434/v1` with
 src/app/
 ├── core/
 │   ├── models/          # Candle, Indicator, Pattern, Analysis, Confluence
-│   ├── services/        # market-data, indicators, patterns, grading, confluence, analysis, pine-script
+│   ├── services/        # market-data, indicators, patterns, grading, confluence, analysis, market-context, pine-script
 │   ├── workers/         # Web Worker (RSI, MACD, BB, ADX, regime, volume)
 │   ├── llm/             # Multi-provider LLM client (OpenAI-compatible)
 │   └── state/           # Signal-based stores (ticker, cache, LLM settings)
@@ -144,17 +159,21 @@ using 6 objective criteria. A selection modal (📍) controls chart markers.
 | 🟢 Bullish | Double Bottom, Inverse Head & Shoulders |
 | 🔴 Bearish | Double Top, Head & Shoulders |
 
-### Confluence Engine (Epic 7 — Offline-First)
+### Confluence Engine (Epic 7 → Epic 9 — V2.0 Bayesian)
 
 A **deterministic probabilistic scoring model** that runs entirely
 client-side — no LLM required. Provides confidence tiers:
 `HIGH` / `MEDIUM` / `LOW` / `NEUTRAL`.
 
-- **Base rate** from market regime (Strong Uptrend → Ranging → Strong Downtrend)
-- **Evidence modification** from graded patterns (A/B), RSI divergence, MACD crossover
-- **Volume multiplier** (×1.2 confirm, ×0.7 contradict)
-- **2026 overrides**: passive flow ×1.1 (mega-caps), 0DTE gamma neutralization (M/W/F)
-- **Risk parameters**: stop-loss from market structure, R:R enforcement (1:2 HIGH, 1:3 MEDIUM), position sizing
+- **Log-odds Bayesian update** with ±2.0 cap — replaces arithmetic `p += 0.10`
+- **Grade-weighted impact** — A=1.0×, B=0.6×, C=0.3×, D=0.1× (no more C/D flattening)
+- **Volatility-adjusted temporal decay** — `exp(−λt)`, adapts per timeframe
+- **Proximity clustering** — merges similar patterns ≤3 candles apart
+- **SMC detection** — BOS, CHoCH, Liquidity Sweep from market structure
+- **Directional volume context** — buy_climax vs sell_climax with regime context
+- **ATR-adaptive risk** — stop-loss and R:R adapt to volatility percentile
+- **Cross-asset market context** — VIX, DXY correlation, forex structural inverse
+- **Asset-universal thresholds** — 0DTE gated to US options, adaptive trend detection
 - **100% traceable**: expand the signals list to see exact per-signal contributions
 
 ### AI Analysis (LLM — Narrative Layer)
@@ -232,6 +251,7 @@ User selects ticker
   → PatternsService.detectAll() + detectChartPatterns()
     → GradingService.gradeAll() → TickerStore.setPatterns()
   → ConfluenceService.score() → TickerStore.setConfluence()
+  → MarketContextService.loadContext() → TickerStore.setMarketContext()
   → Confluence result shown immediately (no LLM needed)
   → User clicks "Run Analysis" (optional LLM narrative)
     → AnalysisService.runAnalysis()
@@ -251,7 +271,7 @@ ng build --configuration production
 ## Tests
 
 ```bash
-npm run test:unit          # Vitest (87 tests)
+npm run test:unit          # Vitest (160 tests)
 npm run test:unit:watch    # Watch mode
 npm run test:coverage      # With coverage report
 ```
@@ -268,11 +288,12 @@ The `.github/skills/` directory and `.github/instructions/default.instructions.m
 
 ## Documentation
 
-- [docs/architecture.md](docs/architecture.md) — Full architectural decision record (13 ADRs, system context, confluence engine, data flow, security)
+- [docs/architecture.md](docs/architecture.md) — Full architectural decision record (16 ADRs, system context, confluence engine, data flow, security)
 - [docs/analytical-framework.md](docs/analytical-framework.md) — Analysis methodology: market regime classification, three-pillar signal hierarchy, probabilistic confluence model, risk integration, AI role
+- [docs/confluence-engine.md](docs/confluence-engine.md) — V1 → V2 evolution: Bayesian update, temporal decay, clustering, SMC, volume context, adaptive risk, market context
 - [docs/classical-patterns.md](docs/classical-patterns.md) — Canonical reference for 30+ technical analysis patterns: recognition criteria, market psychology, statistical edge, reliability grading, combination matrix
 - [docs/classical-patterns-2026.md](docs/classical-patterns-2026.md) — Modern market adaptations: how algo trading, 0DTE options, passive flows, and market fragmentation change pattern reliability in 2026
-- [docs/development-roadmap.md](docs/development-roadmap.md) — Complete development progression: 6 completed epics, 1 in-progress, 1 planned
+- [docs/development-roadmap.md](docs/development-roadmap.md) — Complete development progression: 9 completed epics
 - [prompt-forge](https://github.com/pablodiazjorge/prompt-forge) — Agentic skills infrastructure used in this project
 
 ---

@@ -8,6 +8,7 @@ import {
   IndicatorResults,
   IndicatorSettings,
   AdxResult,
+  AtrResult,
   MarketRegime,
   RegimeResult,
   VolumeClimaxResult,
@@ -286,6 +287,39 @@ function calcAdx(candles: Candle[], period: number): AdxResult {
   return { values, period };
 }
 
+// ─── ATR ────────────────────────────────────────────────────────────
+
+function calcAtr(candles: Candle[], period: number): AtrResult {
+  const values: Record<number, number> = {};
+  if (candles.length < period + 1) return { values, period };
+
+  // Initial ATR: simple average of first `period` true ranges
+  let sum = 0;
+  for (let i = 1; i <= period; i++) {
+    const tr = Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close),
+    );
+    sum += tr;
+  }
+  values[candles[period].time] = round2(sum / period);
+
+  // Wilder's smoothing for subsequent values
+  let prevAtr = sum / period;
+  for (let i = period + 1; i < candles.length; i++) {
+    const tr = Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close),
+    );
+    prevAtr = (prevAtr * (period - 1) + tr) / period;
+    values[candles[i].time] = round2(prevAtr);
+  }
+
+  return { values, period };
+}
+
 // ─── Market Regime Detection ────────────────────────────────────────
 
 function detectRegime(
@@ -469,6 +503,7 @@ self.onmessage = (event: MessageEvent<IndicatorWorkerInput>) => {
     ema21: null,
     volumeProfile: null,
     adx: null,
+    atr: null,
     regime: null,
     volumeClimax: null,
     volumeDryUp: null,
@@ -490,6 +525,7 @@ self.onmessage = (event: MessageEvent<IndicatorWorkerInput>) => {
   if (settings.ema21) result.ema21 = calcEma(candles, 21);
   if (settings.volumeProfile) result.volumeProfile = calcVolumeProfile(candles);
   if (settings.adx) result.adx = calcAdx(candles, 14);
+  if (settings.adx) result.atr = calcAtr(candles, 14);
   if (settings.volumeClimax) result.volumeClimax = detectVolumeClimaxes(candles);
   if (settings.volumeDryUp) result.volumeDryUp = detectVolumeDryUps(candles);
   if (settings.volumeDivergence) result.volumeDivergence = detectVolumeDivergence(candles);

@@ -15,6 +15,11 @@ It serves three audiences:
 All analysis is **probabilistic, not predictive**. Candle AI estimates the
 *balance of evidence*, never claims certainty.
 
+> **Implementation reference:** The V2.0 Bayesian confluence engine is
+> documented in [confluence-engine.md](confluence-engine.md) — including
+> the log-odds update function, evidence calibration, temporal decay
+> formulas, signal hierarchy, and asset-class universality rules.
+
 ---
 
 ## 1. Philosophy & First Principles

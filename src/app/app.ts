@@ -11,6 +11,7 @@ import { LlmSettings } from './features/llm-settings/llm-settings';
 import { LlmSettingsStore } from './core/state/llm-settings.store';
 import { TickerStore } from './core/state/ticker.store';
 import { MarketDataService, Range } from './core/services/market-data.service';
+import { MarketContextService } from './core/services/market-context.service';
 import { IndicatorsService } from './core/services/indicators.service';
 import { PatternsService } from './core/services/patterns.service';
 import { GradingService } from './core/services/grading.service';
@@ -30,6 +31,7 @@ export class App implements OnInit {
   private readonly translate = inject(TranslateService);
   readonly store = inject(TickerStore);
   private readonly marketData = inject(MarketDataService);
+  private readonly marketContextService = inject(MarketContextService);
   private readonly indicatorsService = inject(IndicatorsService);
   private readonly patternsService = inject(PatternsService);
   private readonly gradingService = inject(GradingService);
@@ -88,6 +90,10 @@ export class App implements OnInit {
       this.detectPatterns(cached);
       // Fire-and-forget weekly context (non-blocking)
       this.loadWeeklyContext(ticker, range).catch(() => {});
+      // Fire-and-forget market context (non-blocking)
+      this.marketContextService.loadContext(ticker, cached).then((ctx) => {
+        this.store.marketContext.set(ctx);
+      }).catch(() => {});
       return;
     }
 
@@ -102,6 +108,10 @@ export class App implements OnInit {
       this.detectPatterns(candles);
       // Fire-and-forget weekly context (non-blocking)
       this.loadWeeklyContext(ticker, range).catch(() => {});
+      // Fire-and-forget market context (non-blocking)
+      this.marketContextService.loadContext(ticker, candles).then((ctx) => {
+        this.store.marketContext.set(ctx);
+      }).catch(() => {});
     }
   }
 
@@ -173,6 +183,9 @@ export class App implements OnInit {
       indicators,
       candles,
       ticker,
+      undefined, // accountSize
+      this.store.timeframe(),
+      this.store.marketContext(),
     );
     this.store.setConfluence(result);
   }
@@ -190,7 +203,7 @@ export class App implements OnInit {
         rsi: null, macd: null, bb: null,
         sma20: null, sma50: null, sma200: null,
         ema9: null, ema21: null, volumeProfile: null,
-        adx: null, regime: null,
+        adx: null, atr: null, regime: null,
         volumeClimax: null, volumeDryUp: null, volumeDivergence: null,
       });
       this.store.setRegime(null);

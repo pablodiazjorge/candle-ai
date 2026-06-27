@@ -78,6 +78,12 @@ export interface AdxResult {
   period: number;
 }
 
+export interface AtrResult {
+  /** Map of timestamp → ATR value */
+  values: Record<number, number>;
+  period: number;
+}
+
 export type MarketRegime =
   | 'strong_uptrend'
   | 'weak_uptrend'
@@ -123,6 +129,7 @@ export interface IndicatorResults {
   ema21: EmaResult | null;
   volumeProfile: VolumeProfileResult | null;
   adx: AdxResult | null;
+  atr: AtrResult | null;
   regime: RegimeResult | null;
   volumeClimax: VolumeClimaxResult | null;
   volumeDryUp: VolumeDryUpResult | null;

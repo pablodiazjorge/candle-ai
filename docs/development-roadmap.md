@@ -259,7 +259,7 @@ pattern detection.
 
 ---
 
-## Epic 7: Confluence Engine �
+## Epic 7: Confluence Engine ✅
 
 **Goal**: Replace the LLM-only analysis pipeline with a deterministic
 probabilistic scoring model that produces confidence tiers without AI
@@ -357,6 +357,55 @@ language explanation of the quantitative output).
 
 ---
 
+## Epic 9: Adaptive Bayesian Confluence ✅
+
+**Goal**: Evolve the deterministic confluence engine from arithmetic
+probability scoring to log-odds Bayesian inference with temporal decay,
+grade-weighted impact, proximity clustering, SMC detection, directional
+volume context, and ATR-adaptive risk parameters.
+
+**Why**: The V1.0 arithmetic model (`p += 0.10`) inflated confidence with
+correlated signals (e.g., 4 Bullish Engulfing in 5 days → 95% cap) and
+ignored market structure (SMC), volume directionality, and cross-asset
+context. Bayesian updating with proper evidence weighting produces more
+realistic confidence tiers.
+
+### Deliverables
+
+- [x] **Phase 0: Pre-work** — ATR(14) in Web Worker, EVIDENCE_LOG_LR
+  constants, enhanced structural swing detection
+- [x] **Phase 1: Bayesian Core** — Log-odds update with ±2.0 cap,
+  volatility-adjusted temporal decay, grade-weighted impact (A=1.0×,
+  B=0.6×, C=0.3×, D=0.1×)
+- [x] **Phase 2: Clustering + SMC** — Proximity clustering (merge similar
+  patterns ≤3 candles apart), SMC detection (BOS, CHoCH, Liquidity Sweep)
+  integrated into Bayesian scoring
+- [x] **Phase 3: Volume + Risk** — Directional volume context via
+  close-location delta proxy, ATR-adaptive stop-loss and R:R ratios
+- [x] **Phase 4: Market Context** — Cross-asset market context (VIX, DXY,
+  funding rate) with async preload pattern, integrated via optional
+  `marketContext?` parameter
+
+### Technical Highlights
+
+| Component | V1.0 (Arithmetic) | V2.0 (Bayesian) |
+|-----------|------------------|-----------------|
+| Update rule | `p += 0.10` | `logOdds += clamp(logLR, ±2.0)` |
+| 4× Bullish Engulfing | +0.28 → 95% cap | Clustered → ~72% |
+| Grade C/D | Treated as B | Grade C ×0.3, D ×0.1 |
+| 30-day-old signal | Same weight as fresh | ~1% of fresh weight (daily) |
+| Volume analysis | ×1.2/×0.7 crude multiplier | Directional (buy_climax vs sell_climax) |
+| Risk stops | Fixed R:R by tier | ATR-percentile adaptive |
+| Market context | None | VIX/DXY/funding rate adjustments |
+
+### Files Changed
+
+10 files modified, 1 new file created. ~350 lines of new logic.
+See `analytical-framework.md` Section 5.3 for the mathematical
+derivation of log-odds Bayesian update.
+
+---
+
 ## Summary: Past → Future
 
 | Epic | Status | What |
@@ -369,6 +418,7 @@ language explanation of the quantitative output).
 | 6. Quantitative Foundation | ✅ | Regime, chart patterns, volume, grading |
 | 7. Confluence Engine | ✅ | Probabilistic scoring, signal hierarchy, risk |
 | 8. AI Augmentation | ✅ | Narrative LLM, multi-TF, follow-up chat, history |
+| 9. Adaptive Bayesian Confluence | ✅ | Log-odds inference, decay, clustering, SMC, volume, market context |
 
 ### Dependency Chain
 
@@ -382,6 +432,8 @@ Epic 1 → Epic 2 → Epic 3 → Epic 4
                          Epic 7 (confluence engine)
                               ↓
                          Epic 8 (AI augmentation)
+                              ↓
+                         Epic 9 (adaptive Bayesian confluence)
 ```
 
 ### Design Principle

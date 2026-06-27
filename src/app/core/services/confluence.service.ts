@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Candle } from '../models/candle.model';
-import { DetectedPattern } from '../models/pattern.model';
+import { DetectedPattern, PatternGrade, SMCSignal } from '../models/pattern.model';
+import { Timeframe } from './market-data.service';
 import {
   IndicatorResults,
   RegimeResult,
@@ -12,13 +13,26 @@ import {
   ConfidenceTier,
   SignalContribution,
   RiskParams,
+  MarketContext,
 } from '../models/analysis.model';
 
-/** Known mega-cap tickers and ETFs subject to passive flow override */
+/** Known mega-cap tickers and ETFs subject to passive flow override (US-centric) */
 const MEGA_CAPS = new Set([
   'SPY', 'QQQ', 'IVV', 'VOO', 'DIA', 'IWM',
   'NVDA', 'META', 'GOOGL', 'GOOG', 'TSLA', 'AAPL', 'MSFT', 'AMZN',
   'SPCX',
+]);
+
+/** US equities/ETFs with active 0DTE options markets (M/W/F expiry) */
+const US_OPTIONS_UNDERLYINGS = new Set([
+  'SPY', 'QQQ', 'IWM', 'DIA',
+  'AAPL', 'TSLA', 'NVDA', 'META', 'GOOGL', 'GOOG', 'AMZN', 'MSFT',
+  'AMD', 'NFLX', 'CRM', 'BA', 'DIS', 'UBER',
+]);
+
+/** Forex majors where DXY correlation is structural (near -1.0 inverse) */
+const FOREX_MAJORS = new Set([
+  'EURUSD=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X',
 ]);
 
 /** Base probability of bullish by regime (analytical-framework.md Section 5.2) */
@@ -31,7 +45,7 @@ const REGIME_BASE: Record<MarketRegime, number> = {
   transitional: 0.50,
 };
 
-/** Evidence modifiers (analytical-framework.md Section 5.3) */
+/** Evidence modifiers — V1.0 arithmetic (p += modifier, p *= factor) */
 const EVIDENCE = {
   CHART_PATTERN_A: { aligned: 0.15, counter: 0.08 },
   CHART_PATTERN_B: { aligned: 0.10, counter: 0.05 },
@@ -43,6 +57,271 @@ const EVIDENCE = {
   VOLUME_ABSENT: 0.8,
   VOLUME_CONTRA: 0.7,
 };
+
+/**
+ * Evidence weights in log-likelihood-ratio (log-LR) scale — V2.0.
+ *
+ * Replaces arithmetic p += 0.10 with log-odds Bayesian updating:
+ *   logOdds += logLR × gradeMult × decayWeight
+ *
+ * Calibration: legacy +0.10 modifier ≈ LR 1.49 → ln(1.49) ≈ 0.40.
+ * Counter-regime weights are 50% of aligned.
+ * SMC signals pre-declared for Phase 2 forward compatibility.
+ *
+ * @see analytical-framework.md Section 5.3
+ */
+const EVIDENCE_LOG_LR = {
+  CHART_PATTERN_A:   { aligned: 0.60, counter: 0.30 },
+  CHART_PATTERN_B:   { aligned: 0.40, counter: 0.20 },
+  CANDLE_PATTERN_A:  { aligned: 0.40, counter: 0.20 },
+  CANDLE_PATTERN_B:  { aligned: 0.28, counter: 0.14 },
+  RSI_DIVERGENCE:    { aligned: 0.35, counter: 0.18 },
+  MACD_CROSSOVER:    { aligned: 0.25, counter: 0.12 },
+  /** SMC signals (Phase 2) — pre-declared for forward compatibility */
+  SMC_BOS:           { aligned: 0.60, counter: 0.30 },
+  SMC_CHOCH:         { aligned: 0.70, counter: 0.35 },
+  SMC_LIQUIDITY_SWEEP: { aligned: 0.50, counter: 0.25 },
+  /** Volume signals in log-LR (positive = confirm, negative = contradict) */
+  VOLUME_CONFIRM:    0.25,
+  VOLUME_CONTRA:    -0.35,
+} as const;
+
+/** Cap on absolute log-LR per signal to prevent overconfidence explosion */
+const LOG_LR_CAP = 2.0;
+
+const GRADE_MULTIPLIER: Record<PatternGrade, number> = {
+  'A': 1.0,
+  'B': 0.6,
+  'C': 0.3,
+  'D': 0.1,
+};
+
+const TEMPORAL_LAMBDA: Record<Timeframe, number> = {
+  '1m': 2.0,
+  '5m': 1.5,
+  '15m': 1.0,
+  '1h': 0.5,
+  '4h': 0.3,
+  '1d': 0.15,
+  '1wk': 0.05,
+  '1mo': 0.02,
+};
+
+// ─── Bayesian & Decay Helpers ──────────────────────────────────────
+
+function bayesianUpdate(p: number, logLR: number, cap: number = LOG_LR_CAP): number {
+  if (p <= 0.05 || p >= 0.95) return p;
+  const clampedLR = Math.max(Math.min(logLR, cap), -cap);
+  const logOdds = Math.log(p / (1 - p));
+  const newLogOdds = logOdds + clampedLR;
+  const newOdds = Math.exp(newLogOdds);
+  return newOdds / (1 + newOdds);
+}
+
+function computeTemporalDecay(
+  daysAgo: number,
+  timeframe: Timeframe,
+  atr14?: number,
+  sma20?: number,
+): number {
+  const lambdaBase = TEMPORAL_LAMBDA[timeframe] ?? 0.15;
+  let lambdaEff = lambdaBase;
+  if (atr14 !== undefined && sma20 !== undefined && sma20 > 0 && atr14 > 0) {
+    const atrRatio = atr14 / sma20;
+    lambdaEff = lambdaBase * (1 + Math.min(atrRatio, 3.0));
+  }
+  const weight = Math.exp(-lambdaEff * Math.max(daysAgo, 0));
+  return Math.max(0.01, Math.min(1.0, weight));
+}
+
+// ─── SMC Detection (Phase 2) ──────────────────────────────────────
+
+/**
+ * Detect Smart Money Concept signals from market structure.
+ *
+ * BOS (Break of Structure): price closes beyond last swing high/low.
+ * CHoCH (Change of Character): trend breaks prior structure.
+ * Liquidity Sweep: price briefly breaks swing point but closes back inside.
+ */
+function detectSMC(candles: Candle[], swingPoints: SwingPoint[]): SMCSignal[] {
+  const signals: SMCSignal[] = [];
+  // Require sufficient data for reliable swing detection
+  if (swingPoints.length < 2 || candles.length < 50) return signals;
+
+  const last = candles[candles.length - 1];
+  const trend = detectTrendDirection(candles, 20);
+
+  const lastSwingHigh = swingPoints.filter((s) => s.type === 'high').pop();
+  const lastSwingLow = swingPoints.filter((s) => s.type === 'low').pop();
+
+  // BOS: close beyond swing point
+  if (lastSwingHigh && last.close > lastSwingHigh.price) {
+    const strength = Math.min((last.close - lastSwingHigh.price) / lastSwingHigh.price * 100, 1);
+    signals.push({
+      type: 'BOS', direction: 'bullish', strength,
+      price: lastSwingHigh.price,
+      description: `Bullish BOS: broke above swing high $${lastSwingHigh.price.toFixed(2)}`,
+    });
+  }
+  if (lastSwingLow && last.close < lastSwingLow.price) {
+    const strength = Math.min((lastSwingLow.price - last.close) / lastSwingLow.price * 100, 1);
+    signals.push({
+      type: 'BOS', direction: 'bearish', strength,
+      price: lastSwingLow.price,
+      description: `Bearish BOS: broke below swing low $${lastSwingLow.price.toFixed(2)}`,
+    });
+  }
+
+  // CHoCH: trend breaks prior structure
+  if (trend === 'uptrend' && lastSwingLow && last.close < lastSwingLow.price) {
+    signals.push({
+      type: 'CHoCH', direction: 'bearish', strength: 0.8,
+      price: lastSwingLow.price,
+      description: `Bearish CHoCH: uptrend broke structure at $${lastSwingLow.price.toFixed(2)}`,
+    });
+  }
+  if (trend === 'downtrend' && lastSwingHigh && last.close > lastSwingHigh.price) {
+    signals.push({
+      type: 'CHoCH', direction: 'bullish', strength: 0.8,
+      price: lastSwingHigh.price,
+      description: `Bullish CHoCH: downtrend broke structure at $${lastSwingHigh.price.toFixed(2)}`,
+    });
+  }
+
+  // Liquidity Sweep: wick breaks but close stays inside
+  const recentCandles = candles.slice(-5);
+  for (const c of recentCandles) {
+    if (lastSwingLow && c.low < lastSwingLow.price && c.close > lastSwingLow.price) {
+      signals.push({
+        type: 'LIQUIDITY_SWEEP', direction: 'bullish', strength: 0.7,
+        price: lastSwingLow.price,
+        description: `Bullish sweep: liquidity grab below $${lastSwingLow.price.toFixed(2)}, closed above`,
+      });
+      break;
+    }
+    if (lastSwingHigh && c.high > lastSwingHigh.price && c.close < lastSwingHigh.price) {
+      signals.push({
+        type: 'LIQUIDITY_SWEEP', direction: 'bearish', strength: 0.7,
+        price: lastSwingHigh.price,
+        description: `Bearish sweep: liquidity grab above $${lastSwingHigh.price.toFixed(2)}, closed below`,
+      });
+      break;
+    }
+  }
+
+  return signals;
+}
+
+function detectTrendDirection(candles: Candle[], period: number): 'uptrend' | 'downtrend' | 'ranging' {
+  if (candles.length < period) return 'ranging';
+
+  // Compute simple ATR(14) for volatility-normalized threshold
+  let atr14 = 0;
+  if (candles.length >= 15) {
+    let sumTr = 0;
+    for (let i = candles.length - 14; i < candles.length; i++) {
+      const tr = Math.max(
+        candles[i].high - candles[i].low,
+        Math.abs(candles[i].high - candles[i - 1].close),
+        Math.abs(candles[i].low - candles[i - 1].close),
+      );
+      sumTr += tr;
+    }
+    atr14 = sumTr / 14;
+  }
+
+  const recent = candles.slice(-period);
+  const firstPrice = recent[0].close;
+  const lastPrice = recent[recent.length - 1].close;
+  const pctChange = (lastPrice - firstPrice) / firstPrice;
+
+  // Volatility-adaptive threshold: expected move = atr14/price × sqrt(period)
+  const avgPrice = (firstPrice + lastPrice) / 2;
+  const expectedMove = atr14 > 0 && avgPrice > 0
+    ? (atr14 / avgPrice) * Math.sqrt(period)
+    : 0.03; // fallback: 3%
+
+  // Require price change to exceed 1.5× expected move for a valid trend
+  // Floor at 0.5% (forex majors). No ceiling — high-vol assets (BTC ~27%,
+  // ETH ~35%) legitimately require larger thresholds to filter noise.
+  const threshold = Math.max(expectedMove * 1.5, 0.005);
+  if (pctChange > threshold) return 'uptrend';
+  if (pctChange < -threshold) return 'downtrend';
+  return 'ranging';
+}
+
+// ─── Proximity Clustering (Phase 2) ────────────────────────────────
+
+interface TemporalPattern {
+  pattern: DetectedPattern;
+  daysAgo: number;
+  candleIndex: number;
+  rawLogLR: number;
+  effectiveLogLR: number;
+  clustered: boolean;
+}
+
+/**
+ * Merge similar patterns within 3 candles of each other.
+ * They represent the same market event, not independent evidence.
+ */
+function clusterPatterns(
+  patterns: DetectedPattern[],
+  candles: Candle[],
+  baseLogLR: (p: DetectedPattern) => number,
+): TemporalPattern[] {
+  const lastIdx = candles.length - 1;
+
+  const temporal: TemporalPattern[] = patterns
+    .filter((p) => p.sentiment !== 'neutral')
+    .map((p) => {
+      const idx = candles.findIndex((c) => c.time === p.time);
+      const daysAgo = idx >= 0 ? lastIdx - idx : 0;
+      return {
+        pattern: p,
+        daysAgo,
+        candleIndex: idx,
+        rawLogLR: baseLogLR(p),
+        effectiveLogLR: 0,
+        clustered: false,
+      };
+    })
+    .sort((a, b) => a.candleIndex - b.candleIndex);
+
+  const clustered: TemporalPattern[] = [];
+
+  for (let i = 0; i < temporal.length; i++) {
+    if (temporal[i].clustered) continue;
+
+    const cluster: TemporalPattern[] = [temporal[i]];
+
+    for (let j = i + 1; j < temporal.length; j++) {
+      const other = temporal[j];
+      if (other.clustered) continue;
+      if (other.pattern.type !== temporal[i].pattern.type) continue;
+      if (other.pattern.sentiment !== temporal[i].pattern.sentiment) continue;
+      if (Math.abs(other.candleIndex - temporal[i].candleIndex) <= 3) {
+        cluster.push(other);
+        other.clustered = true;
+      }
+    }
+
+    if (cluster.length === 1) {
+      cluster[0].effectiveLogLR = cluster[0].rawLogLR;
+    } else {
+      // Merge: max logLR + consistency bonus (capped at 1.5× base)
+      const maxRaw = Math.max(...cluster.map((tp) => tp.rawLogLR));
+      const bonus = 0.05 * (cluster.length - 1);
+      cluster[0].effectiveLogLR = Math.min(maxRaw + bonus, maxRaw * 1.5);
+      // Mark representative with cluster info via a flag (used in contribution description)
+      (cluster[0] as any).isClustered = true;
+      (cluster[0] as any).clusterSize = cluster.length;
+    }
+    clustered.push(cluster[0]);
+  }
+
+  return clustered;
+}
 
 /**
  * Deterministic probabilistic scoring engine.
@@ -72,6 +351,8 @@ export class ConfluenceService {
     candles: Candle[],
     ticker: string,
     accountSize?: number,
+    timeframe: Timeframe = '1d',
+    marketContext?: MarketContext | null,
   ): ConfluenceResult {
     const contributions: SignalContribution[] = [];
     const overrides: string[] = [];
@@ -98,80 +379,121 @@ export class ConfluenceService {
         : 'No regime data — neutral base rate (50% bullish). All signals scored with neutral context.',
     });
 
-    // ─── 2. Chart Patterns (Level 2 in hierarchy) ─────────────────
-    // Only score recent chart patterns (last 60 candles = ~3 months daily)
+    // ─── 2. Chart Patterns (Level 2) — clustered ────────────────
     const CHART_LOOKBACK = 60;
-    const chartRecentTimestamps = new Set(candles.slice(-CHART_LOOKBACK).map((c) => c.time));
-    const chartPatterns = patterns.filter((p) =>
+    const chartRecent = candles.slice(-CHART_LOOKBACK);
+    const chartRecentTimestamps = new Set(chartRecent.map((c) => c.time));
+    const rawChartPatterns = patterns.filter((p) =>
       ['double_top', 'double_bottom', 'head_and_shoulders', 'inverse_head_and_shoulders'].includes(p.type) &&
       chartRecentTimestamps.has(p.time),
     );
 
-    for (const cp of chartPatterns) {
+    const lastCandleIdx = candles.length - 1;
+    const atr14 = indicators?.atr ? Object.values(indicators.atr.values).pop() : undefined;
+    const sma20Val = indicators?.sma20 ? Object.values(indicators.sma20.values).pop() : undefined;
+
+    // Cluster chart patterns
+    const clusteredCharts = clusterPatterns(rawChartPatterns, candles, (cp) => {
+      const tier = (cp.grade === 'A') ? 'A' : 'B';
+      const cfg = tier === 'A' ? EVIDENCE_LOG_LR.CHART_PATTERN_A : EVIDENCE_LOG_LR.CHART_PATTERN_B;
+      const regimeAligned = (cp.sentiment === 'bullish' && initialRegimeIsBullish) ||
+        (cp.sentiment === 'bearish' && !initialRegimeIsBullish);
+      return regimeAligned ? cfg.aligned : cfg.counter;
+    });
+
+    for (const tp of clusteredCharts) {
+      const cp = tp.pattern;
+      const sigDir = cp.sentiment as 'bullish' | 'bearish';
       const grade = cp.grade ?? 'C';
-      const tier = grade === 'A' || grade === 'B' ? grade : 'B'; // C/D treated as B for scoring
-      const config = tier === 'A' ? EVIDENCE.CHART_PATTERN_A : EVIDENCE.CHART_PATTERN_B;
+      const gradeMult = GRADE_MULTIPLIER[grade];
+      const decayWeight = computeTemporalDecay(tp.daysAgo, timeframe, atr14, sma20Val);
+      const effectiveLogLR = tp.effectiveLogLR * gradeMult * decayWeight;
+      const signedLogLR = sigDir === 'bullish' ? effectiveLogLR : -effectiveLogLR;
 
-      const sigDir = cp.sentiment === 'neutral' ? 'neutral' : cp.sentiment;
-      const isAligned = sigDir === 'bullish';
-
-      // Determine if pattern aligns with INITIAL regime
-      const regimeAligned = (sigDir === 'bullish' && initialRegimeIsBullish) ||
-        (sigDir === 'bearish' && !initialRegimeIsBullish);
-
-      const modifier = regimeAligned ? config.aligned : config.counter;
-      const signedModifier = sigDir === 'bullish' ? modifier : sigDir === 'bearish' ? -modifier : 0;
-
-      pBullish += signedModifier;
+      pBullish = bayesianUpdate(pBullish, signedLogLR);
 
       const patternLabel = formatPatternLabel(cp.type, grade);
+      const regimeAlignedCp = (sigDir === 'bullish' && initialRegimeIsBullish) ||
+        (sigDir === 'bearish' && !initialRegimeIsBullish);
+      const regimeNote = regimeAlignedCp ? 'regime-aligned' : 'counter-regime';
+      const clusterNote = tp.effectiveLogLR > tp.rawLogLR ? ', clustered' : '';
       contributions.push({
         signal: patternLabel,
         direction: sigDir,
-        baseModifier: signedModifier,
-        appliedModifier: signedModifier,
+        baseModifier: signedLogLR,
+        appliedModifier: signedLogLR,
         description: hasRegime
-          ? (regimeAligned
-            ? `${patternLabel} — regime-aligned, full weight`
-            : `${patternLabel} — counter-regime, reduced weight (×${(config.counter / config.aligned).toFixed(2)})`)
-          : `${patternLabel} — neutral context (no regime data)`,
+          ? `${patternLabel} — ${regimeNote}, grade ${grade} (×${gradeMult}), decay ${(decayWeight * 100).toFixed(0)}%${clusterNote}`
+          : `${patternLabel} — neutral context, grade ${grade}, decay ${(decayWeight * 100).toFixed(0)}%`,
       });
     }
 
-    // ─── 3. Candlestick Patterns (Level 3 in hierarchy) ────────────
-    // Only score recent patterns (last 30 candles) to avoid noise
+    // ─── 3. Candlestick Patterns (Level 3) — clustered ───────────
     const RECENT_WINDOW = 30;
     const recentTimestamps = new Set(candles.slice(-RECENT_WINDOW).map((c) => c.time));
-    const candlePatterns = patterns.filter((p) =>
+    const rawCandlePatterns = patterns.filter((p) =>
       !['double_top', 'double_bottom', 'head_and_shoulders', 'inverse_head_and_shoulders'].includes(p.type) &&
       recentTimestamps.has(p.time),
     );
 
-    for (const cp of candlePatterns) {
+    const clusteredCandles = clusterPatterns(rawCandlePatterns, candles, (cp) => {
+      const tier = (cp.grade === 'A') ? 'A' : 'B';
+      const cfg = tier === 'A' ? EVIDENCE_LOG_LR.CANDLE_PATTERN_A : EVIDENCE_LOG_LR.CANDLE_PATTERN_B;
+      const regimeAligned = (cp.sentiment === 'bullish' && initialRegimeIsBullish) ||
+        (cp.sentiment === 'bearish' && !initialRegimeIsBullish);
+      return regimeAligned ? cfg.aligned : cfg.counter;
+    });
+
+    for (const tp of clusteredCandles) {
+      const cp = tp.pattern;
+      const sigDir = cp.sentiment as 'bullish' | 'bearish';
       const grade = cp.grade ?? 'C';
-      const tier = grade === 'A' || grade === 'B' ? grade : 'B';
-      const config = tier === 'A' ? EVIDENCE.CANDLE_PATTERN_A : EVIDENCE.CANDLE_PATTERN_B;
+      const gradeMult = GRADE_MULTIPLIER[grade];
+      const decayWeight = computeTemporalDecay(tp.daysAgo, timeframe, atr14, sma20Val);
+      const effectiveLogLR = tp.effectiveLogLR * gradeMult * decayWeight;
+      const signedLogLR = sigDir === 'bullish' ? effectiveLogLR : -effectiveLogLR;
 
-      const sigDir = cp.sentiment === 'neutral' ? 'neutral' : cp.sentiment;
-      const regimeAligned = (sigDir === 'bullish' && initialRegimeIsBullish) ||
-        (sigDir === 'bearish' && !initialRegimeIsBullish);
-
-      const modifier = regimeAligned ? config.aligned : config.counter;
-      const signedModifier = sigDir === 'bullish' ? modifier : sigDir === 'bearish' ? -modifier : 0;
-
-      pBullish += signedModifier;
+      pBullish = bayesianUpdate(pBullish, signedLogLR);
 
       const patternLabel = formatPatternLabel(cp.type, grade);
+      const regimeAlignedCp = (sigDir === 'bullish' && initialRegimeIsBullish) ||
+        (sigDir === 'bearish' && !initialRegimeIsBullish);
+      const regimeNote = regimeAlignedCp ? 'regime-aligned' : 'counter-regime';
+      const clusterNote = tp.effectiveLogLR > tp.rawLogLR ? ', clustered' : '';
       contributions.push({
         signal: patternLabel,
         direction: sigDir,
-        baseModifier: signedModifier,
-        appliedModifier: signedModifier,
+        baseModifier: signedLogLR,
+        appliedModifier: signedLogLR,
         description: hasRegime
-          ? (regimeAligned
-            ? `${patternLabel} — regime-aligned`
-            : `${patternLabel} — counter-regime, reduced weight`)
-          : `${patternLabel} — neutral context (no regime data)`,
+          ? `${patternLabel} — ${regimeNote}, grade ${grade} (×${gradeMult}), decay ${(decayWeight * 100).toFixed(0)}%${clusterNote}`
+          : `${patternLabel} — neutral context, grade ${grade}, decay ${(decayWeight * 100).toFixed(0)}%`,
+      });
+    }
+
+    // ─── 3.5 SMC Signals (Level 2.5) ──────────────────────────────
+    const swingPoints = detectSwingPoints(candles, indicators?.atr?.values);
+    const smcSignals = detectSMC(candles, swingPoints);
+    for (const smc of smcSignals) {
+      const logLrKey = `SMC_${smc.type}` as keyof typeof EVIDENCE_LOG_LR;
+      const logLrCfg = EVIDENCE_LOG_LR[logLrKey];
+      if (typeof logLrCfg !== 'object' || !('aligned' in logLrCfg)) continue;
+
+      const regimeAligned = (smc.direction === 'bullish' && initialRegimeIsBullish) ||
+        (smc.direction === 'bearish' && !initialRegimeIsBullish);
+      const baseLogLR = regimeAligned ? logLrCfg.aligned : logLrCfg.counter;
+      const signedLogLR = (smc.direction === 'bullish' ? baseLogLR : -baseLogLR) * smc.strength;
+
+      pBullish = bayesianUpdate(pBullish, signedLogLR);
+
+      contributions.push({
+        signal: `SMC: ${smc.description}`,
+        direction: smc.direction,
+        baseModifier: signedLogLR,
+        appliedModifier: signedLogLR,
+        description: hasRegime
+          ? `${smc.description} — ${regimeAligned ? 'regime-aligned' : 'counter-regime'}, strength ${(smc.strength * 100).toFixed(0)}%`
+          : `${smc.description} — neutral context`,
       });
     }
 
@@ -179,84 +501,154 @@ export class ConfluenceService {
     if (indicators) {
       const rsiDiv = detectRsiDivergence(indicators, candles);
       if (rsiDiv) {
-        const config = EVIDENCE.RSI_DIVERGENCE;
+        const logLrCfg = EVIDENCE_LOG_LR.RSI_DIVERGENCE;
         const regimeAligned = (rsiDiv === 'bullish' && initialRegimeIsBullish) ||
           (rsiDiv === 'bearish' && !initialRegimeIsBullish);
-        const modifier = regimeAligned ? config.aligned : config.counter;
-        const signedModifier = rsiDiv === 'bullish' ? modifier : -modifier;
+        const logLR = regimeAligned ? logLrCfg.aligned : logLrCfg.counter;
+        const signedLogLR = rsiDiv === 'bullish' ? logLR : -logLR;
 
-        pBullish += signedModifier;
+        pBullish = bayesianUpdate(pBullish, signedLogLR);
 
         const label = rsiDiv === 'bullish' ? 'RSI Bullish Divergence' : 'RSI Bearish Divergence';
         contributions.push({
           signal: label,
           direction: rsiDiv,
-          baseModifier: signedModifier,
-          appliedModifier: signedModifier,
+          baseModifier: signedLogLR,
+          appliedModifier: signedLogLR,
           description: hasRegime
-            ? (regimeAligned
-              ? 'Price-RSI divergence — regime-aligned'
-              : 'Price-RSI divergence — counter-regime')
+            ? (regimeAligned ? 'Price-RSI divergence — regime-aligned' : 'Price-RSI divergence — counter-regime')
             : 'Price-RSI divergence — neutral context',
         });
       }
 
       const macdCross = detectMacdCrossover(indicators);
       if (macdCross) {
-        const config = EVIDENCE.MACD_CROSSOVER;
+        const logLrCfg = EVIDENCE_LOG_LR.MACD_CROSSOVER;
         const regimeAligned = (macdCross === 'bullish' && initialRegimeIsBullish) ||
           (macdCross === 'bearish' && !initialRegimeIsBullish);
-        const modifier = regimeAligned ? config.aligned : config.counter;
-        const signedModifier = macdCross === 'bullish' ? modifier : -modifier;
+        const logLR = regimeAligned ? logLrCfg.aligned : logLrCfg.counter;
+        const signedLogLR = macdCross === 'bullish' ? logLR : -logLR;
 
-        pBullish += signedModifier;
+        pBullish = bayesianUpdate(pBullish, signedLogLR);
 
         const label = macdCross === 'bullish' ? 'MACD Bullish Crossover' : 'MACD Bearish Crossover';
         contributions.push({
           signal: label,
           direction: macdCross,
-          baseModifier: signedModifier,
-          appliedModifier: signedModifier,
+          baseModifier: signedLogLR,
+          appliedModifier: signedLogLR,
           description: hasRegime
-            ? (regimeAligned
-              ? 'MACD line crossed signal — regime-aligned'
-              : 'MACD line crossed signal — counter-regime')
+            ? (regimeAligned ? 'MACD line crossed signal — regime-aligned' : 'MACD line crossed signal — counter-regime')
             : 'MACD crossover — neutral context',
         });
       }
     }
 
-    // ─── 5. Volume Multiplier (Level 5 in hierarchy) ──────────────
-    const volSignal = detectVolumeSignal(indicators, patterns);
-    if (volSignal === 'confirm') {
-      pBullish *= EVIDENCE.VOLUME_CONFIRM;
+    // ─── 5. Volume (Level 5) — directional context ──────────────
+    const volCtx = analyzeVolumeContext(candles, indicators, patterns);
+    if (volCtx) {
+      let volLogLR = 0;
+      let volDesc = '';
+
+      if (volCtx.climaxType === 'buy_climax') {
+        // Buy climax: high volume + close near high
+        if (initialRegimeIsBullish) {
+          // In uptrend: distribution/absorption = bearish (smart money selling into strength)
+          volLogLR = EVIDENCE_LOG_LR.VOLUME_CONTRA;
+          volDesc = 'Buy climax in uptrend — distribution (bearish)';
+        } else {
+          // In downtrend: capitulation = bullish (smart money accumulating)
+          volLogLR = EVIDENCE_LOG_LR.VOLUME_CONFIRM;
+          volDesc = 'Buy climax in downtrend — capitulation (bullish)';
+        }
+      } else if (volCtx.climaxType === 'sell_climax') {
+        // Sell climax: high volume + close near low
+        if (initialRegimeIsBullish) {
+          // In uptrend: profit-taking/distribution = bearish
+          volLogLR = EVIDENCE_LOG_LR.VOLUME_CONTRA;
+          volDesc = 'Sell climax in uptrend — distribution (bearish)';
+        } else {
+          // In downtrend: capitulation = bullish (exhaustion of selling)
+          volLogLR = EVIDENCE_LOG_LR.VOLUME_CONFIRM;
+          volDesc = 'Sell climax in downtrend — capitulation (bullish)';
+        }
+      } else if (volCtx.deltaDirection === 'buy') {
+        volLogLR = EVIDENCE_LOG_LR.VOLUME_CONFIRM * 0.5;
+        volDesc = 'Buy-side volume pressure — weak confirm';
+      } else if (volCtx.deltaDirection === 'sell') {
+        volLogLR = EVIDENCE_LOG_LR.VOLUME_CONTRA * 0.5;
+        volDesc = 'Sell-side volume pressure — weak contradict';
+      } else {
+        volLogLR = -0.10; // No clear signal = slight negative
+        volDesc = 'No directional volume signal — slight reduce';
+      }
+
+      pBullish = bayesianUpdate(pBullish, volLogLR);
       contributions.push({
-        signal: 'Volume Confirmation',
-        direction: 'neutral',
-        baseModifier: EVIDENCE.VOLUME_CONFIRM - 1,
-        appliedModifier: EVIDENCE.VOLUME_CONFIRM - 1,
-        description: 'Volume supports the dominant direction — confidence boosted',
-      });
-    } else if (volSignal === 'contradict') {
-      pBullish *= EVIDENCE.VOLUME_CONTRA;
-      contributions.push({
-        signal: 'Volume Contradiction',
-        direction: 'neutral',
-        baseModifier: 1 - EVIDENCE.VOLUME_CONTRA,
-        appliedModifier: 1 - EVIDENCE.VOLUME_CONTRA,
-        description: 'Volume contradicts the dominant direction — confidence heavily reduced',
-      });
-    } else if (volSignal === 'absent') {
-      pBullish *= EVIDENCE.VOLUME_ABSENT;
-      contributions.push({
-        signal: 'Volume Absent',
-        direction: 'neutral',
-        baseModifier: 1 - EVIDENCE.VOLUME_ABSENT,
-        appliedModifier: 1 - EVIDENCE.VOLUME_ABSENT,
-        description: 'No volume signal detected — confidence reduced',
+        signal: volCtx.climaxType !== 'none' ? `Volume: ${volCtx.climaxType.replace('_', ' ')}` : 'Volume Pressure',
+        direction: volCtx.deltaDirection === 'buy' ? 'bullish' : volCtx.deltaDirection === 'sell' ? 'bearish' : 'neutral',
+        baseModifier: volLogLR,
+        appliedModifier: volLogLR,
+        description: `${volDesc} (delta: ${volCtx.deltaDirection}, strength: ${(volCtx.deltaStrength * 100).toFixed(0)}%)`,
       });
     }
     // Note: if volSignal is null, volume indicators are not active — skip multiplier
+
+    // ─── 5.5 Market Context (Epic 9) ────────────────────────────
+    if (marketContext) {
+      const vixAdjustMsg = applyVixAdjustment(marketContext, contributions);
+      if (vixAdjustMsg) {
+        // Apply global log-LR scaling to all future signals
+        // Already-applied signals are not retroactively scaled.
+        // Instead, we add a single adjustment entry.
+        pBullish = bayesianUpdate(pBullish, marketContext.vixAdjustment);
+        contributions.push({
+          signal: `VIX: ${marketContext.vixLevel}`,
+          direction: 'neutral',
+          baseModifier: marketContext.vixAdjustment,
+          appliedModifier: marketContext.vixAdjustment,
+          description: vixAdjustMsg,
+        });
+      }
+
+      if (marketContext.dxyCorrelation !== 0 && !ticker.includes('-USD')) {
+        // Forex majors: DXY is structurally ≈ -1.0 correlated with EUR/USD etc.
+        // Use direct inverse rather than computed correlation for accuracy
+        const isForexMajor = FOREX_MAJORS.has(ticker);
+        const dxyAdjust = isForexMajor
+          ? -0.12 // Direct inverse: DXY up = forex major down (stronger than -0.08)
+          : marketContext.dxyCorrelation > 0.3 ? -0.08
+            : marketContext.dxyCorrelation < -0.3 ? 0.08 : 0;
+        if (dxyAdjust !== 0) {
+          pBullish = bayesianUpdate(pBullish, dxyAdjust);
+          contributions.push({
+            signal: `DXY Correlation: ${marketContext.dxyCorrelation.toFixed(2)}`,
+            direction: dxyAdjust > 0 ? 'bullish' : 'bearish',
+            baseModifier: dxyAdjust,
+            appliedModifier: dxyAdjust,
+            description: isForexMajor
+              ? 'Forex major — DXY inverse structural relationship (−0.12 logLR)'
+              : `DXY 30d correlation with ${ticker}: ${(marketContext.dxyCorrelation * 100).toFixed(0)}%`,
+          });
+        }
+      }
+
+      if (marketContext.fundingRate !== undefined) {
+        const funding = marketContext.fundingRate;
+        if (Math.abs(funding) > 0.001) {
+          // Extreme positive funding → bearish contrarian
+          const fundingLR = funding > 0 ? -0.15 : 0.10;
+          pBullish = bayesianUpdate(pBullish, fundingLR);
+          contributions.push({
+            signal: `Funding Rate: ${(funding * 100).toFixed(3)}%`,
+            direction: funding > 0 ? 'bearish' : 'bullish',
+            baseModifier: fundingLR,
+            appliedModifier: fundingLR,
+            description: `Perpetual funding rate ${funding > 0 ? 'positive (bearish contrarian)' : 'negative (bullish contrarian)'}`,
+          });
+        }
+      }
+    }
 
     // ─── 6. 2026 Market Overrides ─────────────────────────────────
     pBullish = this.apply2026Overrides(pBullish, ticker, candles, overrides);
@@ -265,15 +657,13 @@ export class ConfluenceService {
     pBullish = clamp(pBullish, 0.05, 0.95);
 
     // ─── 8. Filter zero-impact signals ─────────────────────────────
-    // Remove signals with 0 appliedModifier (e.g., Doji D grade)
-    // — they contribute nothing but clutter the UI
-    const filtered = contributions.filter((s) => s.appliedModifier !== 0);
+    const filtered = contributions.filter((s) => Math.abs(s.appliedModifier) > 0.001);
 
     // ─── 9. Compute Tier ──────────────────────────────────────────
     const { direction, tier } = computeTier(pBullish);
 
     // ─── 10. Risk Parameters ──────────────────────────────────────
-    const riskParams = this.computeRiskParams(candles, direction, tier, accountSize);
+    const riskParams = this.computeRiskParams(candles, direction, tier, indicators, accountSize);
 
     return {
       direction,
@@ -310,10 +700,11 @@ export class ConfluenceService {
       pBullish = clamp(pBullish, 0.05, 0.95);
     }
 
-    // 0DTE Gamma Override: M/W/F intraday patterns downgraded
-    // Only applies to sub-daily timeframes (daily/weekly skip this)
+    // 0DTE Gamma Override: M/W/F intraday — ONLY for US equities/ETFs
+    // with active 0DTE options. Forex (24/5), crypto (24/7), commodities,
+    // and international stocks do NOT have 0DTE gamma effects.
     const dow = new Date().getUTCDay(); // 1=Mon, 3=Wed, 5=Fri
-    if (dow === 1 || dow === 3 || dow === 5) {
+    if (US_OPTIONS_UNDERLYINGS.has(ticker) && (dow === 1 || dow === 3 || dow === 5)) {
       if (candles.length >= 2) {
         const intervalMs = (candles[1].time - candles[0].time) * 1000;
         const hours = intervalMs / (1000 * 60 * 60);
@@ -338,6 +729,7 @@ export class ConfluenceService {
     candles: Candle[],
     direction: ConfluenceDirection,
     tier: ConfidenceTier,
+    indicators: IndicatorResults | null,
     accountSize?: number,
     riskPercent: number = 0.02,
   ): RiskParams {
@@ -348,44 +740,138 @@ export class ConfluenceService {
     const lastCandle = candles[candles.length - 1];
     const entry = lastCandle.close;
 
+    // Get ATR(14) — from indicators if available, else compute from last 14 candles
+    let atr14 = indicators?.atr ? Object.values(indicators.atr.values).pop() ?? 0 : 0;
+    if (atr14 <= 0 && candles.length >= 15) {
+      atr14 = computeAtrSync(candles, 14);
+    }
+    if (atr14 <= 0) {
+      // Fallback: use 2% of price as proxy for ATR
+      atr14 = entry * 0.02;
+    }
+
+    // Compute ATR percentile — compare current ATR(14) to historical ATR(14)
+    // Prefer worker's pre-computed values; fall back to raw TR if unavailable
+    let atrPercentile = 0.5;
+    if (candles.length >= 20) {
+      const historicalAtr: number[] = [];
+
+      if (indicators?.atr?.values) {
+        // Use worker's pre-computed ATR(14) map
+        const atrEntries = Object.entries(indicators.atr.values)
+          .sort((a, b) => Number(a[0]) - Number(b[0]));
+        for (const [, val] of atrEntries) {
+          if (val > 0) historicalAtr.push(val);
+        }
+      } else {
+        // Fallback: compute simple rolling TR (not Wilder's smoothed, but better than nothing)
+        for (let i = Math.max(14, candles.length - 100); i < candles.length; i++) {
+          let sumTr = 0;
+          for (let j = i - 13; j <= i; j++) {
+            const prevClose = candles[j - 1].close;
+            const tr = Math.max(
+              candles[j].high - candles[j].low,
+              Math.abs(candles[j].high - prevClose),
+              Math.abs(candles[j].low - prevClose),
+            );
+            sumTr += tr;
+          }
+          historicalAtr.push(sumTr / 14);
+        }
+      }
+
+      if (historicalAtr.length > 0) {
+        const belowCurrent = historicalAtr.filter((a) => a < atr14).length;
+        atrPercentile = belowCurrent / historicalAtr.length;
+      }
+    }
+
+    // Adaptive SL multiplier and R:R
+    let slMultiplier: number;
+    let rrRatio: number;
+    if (atrPercentile > 0.8) {
+      slMultiplier = 2.5;
+      rrRatio = tier === 'HIGH' ? 1.5 : tier === 'MEDIUM' ? 2.0 : 1.0;
+    } else if (atrPercentile < 0.2) {
+      slMultiplier = 1.5;
+      rrRatio = tier === 'HIGH' ? 3.0 : tier === 'MEDIUM' ? 4.0 : 2.0;
+    } else {
+      slMultiplier = 2.0;
+      rrRatio = tier === 'HIGH' ? 2.0 : tier === 'MEDIUM' ? 3.0 : 1.5;
+    }
+
+    const slDistance = atr14 * slMultiplier;
+
     let stopLoss: number | null = null;
     let takeProfit: number | null = null;
 
-    const minRR = tier === 'HIGH' ? 2 : tier === 'MEDIUM' ? 3 : 1.5;
+    // Adaptive risk cap: 5× ATR as % of price, clamped to [1%, 20%]
+    const atrPct = atr14 / entry;
+    const maxRiskPct = Math.min(0.20, Math.max(atrPct * 5, 0.01));
+
+    // Use swing-point-based stop as a floor (structure beats indicator)
+    const swingStop = direction === 'bullish'
+      ? findSwingLow(candles, 10)
+      : findSwingHigh(candles, 10);
 
     if (direction === 'bullish') {
-      stopLoss = findSwingLow(candles, 10);
-      if (stopLoss && stopLoss < entry) {
-        // Cap risk at 20% of entry to avoid absurd stops from synthetic data
-        const risk = Math.min(entry - stopLoss, entry * 0.20);
-        takeProfit = entry + risk * minRR;
-        stopLoss = entry - risk;
-      }
+      const atrStop = entry - slDistance;
+      stopLoss = swingStop && swingStop < entry && swingStop > atrStop ? swingStop : atrStop;
+      const risk = Math.min(entry - stopLoss, entry * maxRiskPct);
+      stopLoss = entry - risk;
+      takeProfit = entry + risk * rrRatio;
     } else if (direction === 'bearish') {
-      stopLoss = findSwingHigh(candles, 10);
-      if (stopLoss && stopLoss > entry) {
-        // Cap risk at 20% of entry to avoid absurd stops from synthetic data
-        const risk = Math.min(stopLoss - entry, entry * 0.20);
-        takeProfit = entry - risk * minRR;
-        stopLoss = entry + risk;
-      }
+      const atrStop = entry + slDistance;
+      stopLoss = swingStop && swingStop > entry && swingStop < atrStop ? swingStop : atrStop;
+      const risk = Math.min(stopLoss - entry, entry * maxRiskPct);
+      stopLoss = entry + risk;
+      takeProfit = entry - risk * rrRatio;
     }
 
-    // Ensure take-profit is always a positive absolute price
     if (takeProfit !== null && takeProfit <= 0) {
       takeProfit = null;
     }
-
-    // R:R = risk * minRR / risk = minRR (exact, no floating-point subtraction)
-    const rr = (stopLoss && entry && takeProfit)
-      ? minRR
-      : null;
 
     const positionSize = accountSize && stopLoss && entry
       ? Math.floor((accountSize * riskPercent) / Math.abs(entry - stopLoss))
       : null;
 
-    return { stopLoss, takeProfit, riskRewardRatio: rr, positionSize };
+    return { stopLoss, takeProfit, riskRewardRatio: rrRatio, positionSize };
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────
+
+/** Synchronous ATR computation (fallback when worker data unavailable) */
+function computeAtrSync(candles: Candle[], period: number): number {
+  if (candles.length < period + 1) return 0;
+  let sum = 0;
+  for (let i = candles.length - period; i < candles.length; i++) {
+    const prev = candles[i - 1]!;
+    const tr = Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - prev.close),
+      Math.abs(candles[i].low - prev.close),
+    );
+    sum += tr;
+  }
+  return sum / period;
+}
+
+/** Build description for VIX adjustment applied to confluence */
+function applyVixAdjustment(
+  ctx: MarketContext,
+  contributions: SignalContribution[],
+): string | null {
+  switch (ctx.vixLevel) {
+    case 'extreme':
+      return 'VIX > 30 — fear dominates technicals, all signals neutralized (log-LR × 0.5)';
+    case 'high':
+      return 'VIX 20-30 — elevated fear, signals moderately reduced';
+    case 'low':
+      return 'VIX < 12 — complacency, trends likely to persist (slight boost)';
+    default:
+      return null; // Normal VIX — no adjustment message needed
   }
 }
 
@@ -423,12 +909,13 @@ function formatPatternLabel(type: string, grade: string): string {
 }
 
 function computeTier(p: number): { direction: ConfluenceDirection; tier: ConfidenceTier } {
-  if (p >= 0.75) return { direction: 'bullish', tier: 'HIGH' };
-  if (p >= 0.60) return { direction: 'bullish', tier: 'MEDIUM' };
+  // V2.0: Bayesian converges more conservatively, thresholds adjusted
+  if (p >= 0.72) return { direction: 'bullish', tier: 'HIGH' };
+  if (p >= 0.58) return { direction: 'bullish', tier: 'MEDIUM' };
   if (p >= 0.50) return { direction: 'bullish', tier: 'LOW' };
-  if (p > 0.40) return { direction: 'neutral', tier: 'NEUTRAL' };
-  if (p >= 0.25) return { direction: 'bearish', tier: 'LOW' };
-  if (p >= 0.15) return { direction: 'bearish', tier: 'MEDIUM' };
+  if (p > 0.42) return { direction: 'neutral', tier: 'NEUTRAL' };
+  if (p >= 0.28) return { direction: 'bearish', tier: 'LOW' };
+  if (p >= 0.18) return { direction: 'bearish', tier: 'MEDIUM' };
   return { direction: 'bearish', tier: 'HIGH' };
 }
 
@@ -468,8 +955,8 @@ function detectRsiDivergence(
   if (
     lowestPriceIdx > secondLowestPriceIdx &&
     secondLowestPriceIdx >= 0 &&
-    rsiValues[candles[lowestPriceIdx]?.time] !== undefined &&
-    rsiValues[candles[secondLowestPriceIdx]?.time] !== undefined
+    rsiValues[candles[lowestPriceIdx].time] !== undefined &&
+    rsiValues[candles[secondLowestPriceIdx].time] !== undefined
   ) {
     const rsiNew = rsiValues[candles[lowestPriceIdx].time];
     const rsiOld = rsiValues[candles[secondLowestPriceIdx].time];
@@ -501,8 +988,8 @@ function detectRsiDivergence(
   if (
     highestPriceIdx > secondHighestPriceIdx &&
     secondHighestPriceIdx >= 0 &&
-    rsiValues[candles[highestPriceIdx]?.time] !== undefined &&
-    rsiValues[candles[secondHighestPriceIdx]?.time] !== undefined
+    rsiValues[candles[highestPriceIdx].time] !== undefined &&
+    rsiValues[candles[secondHighestPriceIdx].time] !== undefined
   ) {
     const rsiNew = rsiValues[candles[highestPriceIdx].time];
     const rsiOld = rsiValues[candles[secondHighestPriceIdx].time];
@@ -556,81 +1043,168 @@ function detectMacdCrossover(
  * "Contradict" = volume climax opposes dominant direction
  * "Absent" = no volume signal detected
  */
-function detectVolumeSignal(
+// ─── Volume Context (Phase 3) ─────────────────────────────────────
+
+interface VolumeContext {
+  deltaDirection: 'buy' | 'sell' | 'neutral';
+  deltaStrength: number;
+  climaxType: 'buy_climax' | 'sell_climax' | 'none';
+}
+
+function analyzeVolumeContext(
+  candles: Candle[],
   indicators: IndicatorResults | null,
   patterns: DetectedPattern[],
-): 'confirm' | 'absent' | 'contradict' | null {
+): VolumeContext | null {
   if (!indicators) return null;
 
   const hasClimax = indicators.volumeClimax && indicators.volumeClimax.spikes.length > 0;
   const hasDryUp = indicators.volumeDryUp && indicators.volumeDryUp.dips.length > 0;
   const hasDivergence = indicators.volumeDivergence && indicators.volumeDivergence.divergences.length > 0;
 
-  // If no volume indicators are active (all null), skip multiplier
+  // If no volume indicators active, return null (skip)
   if (!hasClimax && !hasDryUp && !hasDivergence) {
-    // Check if volume indicators are explicitly null (not active)
     if (!indicators.volumeClimax && !indicators.volumeDryUp && !indicators.volumeDivergence) {
       return null;
     }
-    return 'absent';
   }
 
-  // Determine dominant direction from patterns
-  let bullishCount = 0;
-  let bearishCount = 0;
-  for (const p of patterns) {
-    if (p.sentiment === 'bullish') bullishCount++;
-    if (p.sentiment === 'bearish') bearishCount++;
+  const last = candles[candles.length - 1];
+  const range = last.high - last.low;
+  const closeLocation = range > 0 ? (last.close - last.low) / range : 0.5;
+
+  // Close-location delta proxy
+  let deltaDirection: 'buy' | 'sell' | 'neutral';
+  let deltaStrength: number;
+  if (closeLocation > 0.7) {
+    deltaDirection = 'buy';
+    deltaStrength = (closeLocation - 0.7) / 0.3;
+  } else if (closeLocation < 0.3) {
+    deltaDirection = 'sell';
+    deltaStrength = (0.3 - closeLocation) / 0.3;
+  } else {
+    deltaDirection = 'neutral';
+    deltaStrength = 0;
   }
 
-  const dominantBullish = bullishCount > bearishCount;
-
-  // Volume divergence is directional
-  if (hasDivergence) {
-    const lastDiv = indicators.volumeDivergence!.divergences.at(-1)!;
-    if (
-      (lastDiv.type === 'bullish' && dominantBullish) ||
-      (lastDiv.type === 'bearish' && !dominantBullish)
-    ) {
-      return 'confirm';
-    }
-    return 'contradict';
+  // Climax type: high volume + directional close
+  const isClimax = hasClimax && indicators.volumeClimax!.spikes.some(
+    (s) => s.time === last.time
+  );
+  let climaxType: 'buy_climax' | 'sell_climax' | 'none' = 'none';
+  if (isClimax) {
+    if (deltaDirection === 'buy') climaxType = 'buy_climax';
+    else if (deltaDirection === 'sell') climaxType = 'sell_climax';
   }
 
-  // Volume climax in absence of divergence — confirming by default
-  // (high volume during pattern completion = conviction)
-  if (hasClimax && patterns.length > 0) return 'confirm';
+  return { deltaDirection, deltaStrength, climaxType };
+}
 
-  // Volume dry-up = low conviction
-  if (hasDryUp) return 'absent';
+// ─── Structural Swing Detection (V2.0 enhanced) ───────────────────
 
-  return 'absent';
+interface SwingPoint {
+  type: 'high' | 'low';
+  price: number;
+  time: number;
+  index: number;
 }
 
 /**
- * Find the lowest low in the last `window` candles, excluding the last one.
+ * Find structural swing points in candle data.
+ *
+ * A swing high requires: higher than 2 candles before AND 2 candles after.
+ * A swing low requires: lower than 2 candles before AND 2 candles after.
+ *
+ * Enhanced from V1.0's simple min/max window scan. Used by SMC detection
+ * (Phase 2) and stop-loss placement.
+ */
+function detectSwingPoints(
+  candles: Candle[],
+  atrValues?: Record<number, number>,
+): SwingPoint[] {
+  const swings: SwingPoint[] = [];
+  if (candles.length < 5) return swings;
+
+  // Minimum ATR fraction for a swing to be meaningful (noise filter)
+  const minSwingDistance = atrValues
+    ? (Object.values(atrValues).pop() ?? 0) * 0.5
+    : 0;
+
+  for (let i = 2; i < candles.length - 2; i++) {
+    const c = candles[i];
+
+    // Swing high
+    if (
+      c.high > candles[i - 1].high &&
+      c.high > candles[i - 2].high &&
+      c.high > candles[i + 1].high &&
+      c.high > candles[i + 2].high
+    ) {
+      // Noise filter: skip if too close to previous swing OF THE SAME TYPE
+      if (minSwingDistance > 0) {
+        const prevSameType = [...swings].reverse().find((s) => s.type === 'high');
+        if (prevSameType && Math.abs(c.high - prevSameType.price) < minSwingDistance) continue;
+      }
+      swings.push({ type: 'high', price: c.high, time: c.time, index: i });
+    }
+
+    // Swing low
+    if (
+      c.low < candles[i - 1].low &&
+      c.low < candles[i - 2].low &&
+      c.low < candles[i + 1].low &&
+      c.low < candles[i + 2].low
+    ) {
+      if (minSwingDistance > 0) {
+        const prevSameType = [...swings].reverse().find((s) => s.type === 'low');
+        if (prevSameType && Math.abs(c.low - prevSameType.price) < minSwingDistance) continue;
+      }
+      swings.push({ type: 'low', price: c.low, time: c.time, index: i });
+    }
+  }
+
+  return swings;
+}
+
+/**
+ * Find the lowest swing low in the last `window` candles (excluding last).
+ * Enhanced V2.0: uses structural swing detection instead of simple min scan.
  */
 function findSwingLow(candles: Candle[], window: number): number | null {
-  const start = Math.max(0, candles.length - window);
-  let lowest = Infinity;
-  for (let i = start; i < candles.length - 1; i++) {
-    if (candles[i].low < lowest) {
-      lowest = candles[i].low;
+  if (candles.length < 5) return null;
+  const startIdx = Math.max(0, candles.length - window);
+  const windowCandles = candles.slice(startIdx, candles.length - 1);
+  const swings = detectSwingPoints(candles).filter(
+    (s) => s.type === 'low' && s.index >= startIdx && s.index < candles.length - 1,
+  );
+  if (swings.length === 0) {
+    // Fallback: simple min in window
+    let lowest = Infinity;
+    for (const c of windowCandles) {
+      if (c.low < lowest) lowest = c.low;
     }
+    return lowest === Infinity ? null : lowest;
   }
-  return lowest === Infinity ? null : lowest;
+  return Math.min(...swings.map((s) => s.price));
 }
 
 /**
- * Find the highest high in the last `window` candles, excluding the last one.
+ * Find the highest swing high in the last `window` candles (excluding last).
+ * Enhanced V2.0: uses structural swing detection instead of simple max scan.
  */
 function findSwingHigh(candles: Candle[], window: number): number | null {
-  const start = Math.max(0, candles.length - window);
-  let highest = -Infinity;
-  for (let i = start; i < candles.length - 1; i++) {
-    if (candles[i].high > highest) {
-      highest = candles[i].high;
+  if (candles.length < 5) return null;
+  const startIdx = Math.max(0, candles.length - window);
+  const swings = detectSwingPoints(candles).filter(
+    (s) => s.type === 'high' && s.index >= startIdx && s.index < candles.length - 1,
+  );
+  if (swings.length === 0) {
+    // Fallback: simple max in window
+    let highest = -Infinity;
+    for (let i = startIdx; i < candles.length - 1; i++) {
+      if (candles[i].high > highest) highest = candles[i].high;
     }
+    return highest === -Infinity ? null : highest;
   }
-  return highest === -Infinity ? null : highest;
+  return Math.max(...swings.map((s) => s.price));
 }
