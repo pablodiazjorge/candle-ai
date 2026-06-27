@@ -33,7 +33,26 @@ export interface AnalysisResult {
   levels: SupportResistanceLevel[];
   signals: SignalInfo[];
   risk: RiskAssessment;
-  summary: string; // natural language summary
+  summary: string; // natural language summary (3-5 sentences)
+
+  // ─── Phase 2: Enhanced AI output ──────────────────────────────
+  /** Events or levels that could change the outlook */
+  catalysts: string[];
+  /** Price level that would invalidate the current thesis */
+  invalidationLevel: number | null;
+  /** Notes on conviction strength: "3 independent signals agree" / "Conflicting TF signals" */
+  convictionNote: string | null;
+  /** LLM's synthesis of how the weekly timeframe influences the daily view */
+  weeklyContext: string | null;
+  /** Metadata about the LLM that produced this analysis */
+  modelInfo: {
+    provider: string;
+    model: string;
+    /** Approximate tokens used (from usage field if available) */
+    tokensUsed?: number;
+  };
+  /** Raw LLM response for debugging — null in production builds */
+  rawResponse?: string;
 }
 
 // ─── Confluence Engine Types (Epic 7) ────────────────────────────

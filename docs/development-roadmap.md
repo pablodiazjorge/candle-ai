@@ -324,21 +324,21 @@ and asking it to explain the story is the target.
 
 ### Deliverables
 
-- [ ] LLM prompt restructuring
+- [x] LLM prompt restructuring
   - Input: confidence tier + contributing signals + regime + risk parameters
     (not raw indicator values and pattern names)
   - Output: natural language narrative explaining *which* evidence drove
     the conclusion and *why*
-- [ ] Multi-timeframe synthesis
+- [x] Multi-timeframe synthesis
   - Daily pattern within weekly structure
   - Weekly trend context for daily signals
   - "The daily Hammer is a pullback entry within a weekly uptrend" vs
     "The daily Hammer is a dead-cat bounce in a weekly downtrend"
-- [ ] Interactive follow-up questions
+- [x] Interactive follow-up questions
   - User can ask the LLM about specific aspects of the analysis
   - "Why is this signal only MEDIUM confidence?"
   - "What would upgrade this to HIGH?"
-- [ ] Analysis history and comparison
+- [x] Analysis history and comparison
   - Store past analyses for the same ticker
   - Compare current analysis to previous (regime change? signal shift?)
 

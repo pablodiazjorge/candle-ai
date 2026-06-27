@@ -38,6 +38,10 @@ export interface LlmCompletionResponse {
 }
 
 export class LlmProvider {
+  private static readonly DEFAULT_TIMEOUT_MS = 30_000;
+  private static readonly MAX_RETRIES = 2;
+  private static readonly RETRY_BACKOFF_MS = [1000, 2000];
+
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
@@ -46,52 +50,13 @@ export class LlmProvider {
     private readonly temperature: number = 0.3,
   ) {}
 
-  /** Send a chat completion request */
+  /** Send a chat completion request with retry + timeout */
   async complete(systemPrompt: string, userPrompt: string): Promise<string> {
-    const url = `${this.baseUrl}/chat/completions`;
-
-    const body: LlmCompletionRequest = {
-      model: this.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: this.maxTokens,
-      temperature: this.temperature,
-    };
-
-    // Only send response_format for providers that support it (OpenAI, DeepSeek)
-    if (!this.baseUrl.includes('localhost') && !this.baseUrl.includes('127.0.0.1') && !this.baseUrl.includes('ollama')) {
-      body.response_format = { type: 'json_object' };
-    }
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`LLM API error ${response.status}: ${errorText}`);
-    }
-
-    const json: LlmCompletionResponse = await response.json();
-    let content = json.choices?.[0]?.message?.content;
-
-    // Fallback: reasoning models (qwen3, deepseek-r1, etc.) put output in `reasoning`
-    if (!content) {
-      content = (json.choices?.[0]?.message as Record<string, unknown>)?.['reasoning'] as string;
-    }
-
-    if (!content) {
-      throw new Error('Empty response from LLM');
-    }
-
-    return content;
+    const messages: LlmMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+    return this.completeWithRetry(messages, true);
   }
 
   /**
@@ -100,54 +65,116 @@ export class LlmProvider {
    * Enforces a max of 10 messages to protect small local models.
    */
   async completeMultiTurn(messages: LlmMessage[]): Promise<string> {
-    const url = `${this.baseUrl}/chat/completions`;
-
-    // Enforce max messages to avoid token-limit errors with small models
     const clamped = messages.length > 10
       ? [messages[0], ...messages.slice(-9)]
       : messages;
+    return this.completeWithRetry(clamped, false);
+  }
 
-    const body: LlmCompletionRequest = {
-      model: this.model,
-      messages: clamped,
-      max_tokens: this.maxTokens,
-      temperature: this.temperature,
-    };
-    // NOTE: no response_format — follow-up is conversational, not JSON
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
+  /** Core completion logic with retry + timeout */
+  private async completeWithRetry(
+    messages: LlmMessage[],
+    includeResponseFormat: boolean,
+  ): Promise<string> {
+    const url = `${this.baseUrl}/chat/completions`;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`LLM API error ${response.status}: ${errorText}`);
+    for (let attempt = 0; attempt <= LlmProvider.MAX_RETRIES; attempt++) {
+      try {
+        return await this.sendRequest(url, messages, includeResponseFormat);
+      } catch (err) {
+        lastError = err as Error;
+
+        // Don't retry on 4xx errors (client errors: bad request, auth, etc.)
+        if (lastError.message.includes('API error 4')) {
+          // If it's a 400/404 and we sent response_format, retry once without it
+          if (includeResponseFormat && (lastError.message.includes('400') || lastError.message.includes('404'))) {
+            includeResponseFormat = false;
+            continue;
+          }
+          throw lastError;
+        }
+
+        // Retry on network errors or 5xx
+        if (attempt < LlmProvider.MAX_RETRIES) {
+          const delay = LlmProvider.RETRY_BACKOFF_MS[attempt] ?? 2000;
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
     }
 
-    const json: LlmCompletionResponse = await response.json();
-    let content = json.choices?.[0]?.message?.content;
+    throw lastError ?? new Error('LLM request failed');
+  }
 
-    if (!content) {
-      content = (json.choices?.[0]?.message as Record<string, unknown>)?.['reasoning'] as string;
+  /** Send a single request with timeout */
+  private async sendRequest(
+    url: string,
+    messages: LlmMessage[],
+    includeResponseFormat: boolean,
+  ): Promise<string> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LlmProvider.DEFAULT_TIMEOUT_MS);
+
+    try {
+      const body: LlmCompletionRequest = {
+        model: this.model,
+        messages,
+        max_tokens: this.maxTokens,
+        temperature: this.temperature,
+      };
+
+      if (includeResponseFormat) {
+        body.response_format = { type: 'json_object' };
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`LLM API error ${response.status}: ${errorText}`);
+      }
+
+      const json: LlmCompletionResponse = await response.json();
+      let content = json.choices?.[0]?.message?.content;
+
+      // Fallback: reasoning models put output in `reasoning` field
+      if (!content) {
+        content = (json.choices?.[0]?.message as Record<string, unknown>)?.['reasoning'] as string;
+      }
+
+      if (!content) {
+        throw new Error('Empty response from LLM');
+      }
+
+      return content;
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        throw new Error(`LLM request timed out after ${LlmProvider.DEFAULT_TIMEOUT_MS / 1000}s`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    if (!content) {
-      throw new Error('Empty response from LLM');
-    }
-
-    return content;
   }
 
   /** Quick health check — calls the models endpoint */
   async healthCheck(): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(`${this.baseUrl}/models`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       return response.ok;
     } catch {
       return false;

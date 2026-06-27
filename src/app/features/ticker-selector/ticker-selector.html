@@ -22,16 +22,6 @@
       @for (symbol of filteredSymbols(); track symbol) {
         <li class="dropdown-item" (mousedown)="selectSymbol(symbol)" role="option">
           <span class="dropdown-symbol">{{ symbol }}</span>
-          @if (!store.watchlist().includes(symbol)) {
-            <button
-              class="dropdown-add-btn"
-              (mousedown)="$event.stopPropagation(); addToWatchlist(symbol)"
-              [attr.aria-label]="'Add ' + symbol + ' to watchlist'"
-              title="Add to watchlist"
-            >+</button>
-          } @else {
-            <span class="dropdown-check" aria-label="Already in watchlist">✓</span>
-          }
         </li>
       }
     </ul>

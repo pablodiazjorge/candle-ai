@@ -81,6 +81,19 @@ export class AnalysisDashboard implements OnInit {
     this.confluence !== null || this.analysis !== null,
   );
 
+  // ── Phase 2: Cross-validation — detect LLM contradictions ──────
+  readonly crossValidationWarning = computed(() => {
+    const c = this.confluence;
+    const a = this.analysis;
+    if (!c || !a) return null;
+    const llmDirection = a.trend.direction;
+    const detDirection = c.direction;
+    if (llmDirection !== detDirection && detDirection !== 'neutral') {
+      return { llm: llmDirection, deterministic: detDirection };
+    }
+    return null;
+  });
+
   async runAnalysis(): Promise<void> {
     this.error.set(null);
     const result = await this.analysisService.runAnalysis();
@@ -153,7 +166,7 @@ export class AnalysisDashboard implements OnInit {
     return this.isConfigured && this.followUpHistory().length < 10 && !this.followUpLoading();
   }
 
-  /** Convert basic markdown to safe HTML for chat rendering */
+  /** Convert basic markdown to safe HTML for chat rendering (Phase 2 enhanced) */
   formatMarkdown(text: string): SafeHtml {
     let html = text
       .replace(/&/g, '&amp;')
@@ -162,9 +175,15 @@ export class AnalysisDashboard implements OnInit {
 
     // Bold
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // Inline code
+    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
 
     // Split inline bullets: "text:* item" → "text:\n* item"
     html = html.replace(/([^\s\n])([*+-])([ \u00a0])/g, '$1\n$2$3');
+    // Split inline numbered: "text:1. item" → "text:\n1. item"
+    html = html.replace(/([^\s\n\d])(\d+\.)([ \u00a0])/g, '$1\n$2$3');
 
     // Bullet lines → • lines
     html = html.replace(/(^|\n)[*+-][ \u00a0]+/g, '$1• ');

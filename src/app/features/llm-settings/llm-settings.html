@@ -35,18 +35,31 @@
           <legend class="form-section-legend">{{ 'llm.connection' | translate }}</legend>
 
           <!-- Provider -->
-          <div>
+          <div class="custom-select-wrapper">
             <label class="field-label" for="llm-provider">{{ 'llm.provider' | translate }}</label>
-            <select
+            <button
               id="llm-provider"
-              class="field-select"
-              [ngModel]="store.activePresetName()"
-              (change)="onPresetChange($event)"
+              class="custom-select-trigger"
+              (click)="toggleProviderDropdown()"
+              type="button"
             >
-              @for (preset of store.presets(); track preset.name) {
-                <option [value]="preset.name">{{ preset.name }}</option>
-              }
-            </select>
+              <span>{{ store.activePresetName() }}</span>
+              <i class="ph ph-caret-down custom-select-arrow" aria-hidden="true"></i>
+            </button>
+            @if (providerDropdownOpen()) {
+              <ul class="custom-select-dropdown" role="listbox">
+                @for (preset of store.presets(); track preset.name) {
+                  <li
+                    class="custom-select-option"
+                    [class.active]="preset.name === store.activePresetName()"
+                    role="option"
+                    (click)="selectPreset(preset.name)"
+                  >
+                    {{ preset.name }}
+                  </li>
+                }
+              </ul>
+            }
           </div>
 
           <!-- Base URL -->
@@ -83,7 +96,7 @@
                 [attr.aria-label]="showApiKey() ? 'Hide API key' : 'Show API key'"
                 type="button"
               >
-                <span aria-hidden="true">{{ showApiKey() ? '🙈' : '👁️' }}</span>
+                <i aria-hidden="true" [class]="showApiKey() ? 'ph ph-eye-slash' : 'ph ph-eye'"></i>
               </button>
             </div>
           </div>
@@ -163,7 +176,7 @@
 
         <!-- Info about local servers -->
         <div class="info-callout" role="note">
-          <span class="info-callout-icon" aria-hidden="true">ℹ️</span>
+          <i class="ph ph-info info-callout-icon" aria-hidden="true"></i>
           <p>{{ 'llm.localInfo' | translate }}</p>
         </div>
       </div>
