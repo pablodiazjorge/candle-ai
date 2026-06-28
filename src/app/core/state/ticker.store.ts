@@ -75,8 +75,12 @@ export class TickerStore {
     return ((last - first) / first) * 100;
   });
 
+  /** Incremented on every selectTicker() call to force reload even for same ticker */
+  readonly refreshCounter = signal(0);
+
   // --- Actions ---
   selectTicker(ticker: string): void {
+    this.refreshCounter.update((c) => c + 1);
     this.selectedTicker.set(ticker);
     this.candleData.set([]);
     this.indicators.set(null);

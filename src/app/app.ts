@@ -50,6 +50,8 @@ export class App implements OnInit {
       // Track these signals so effect re-runs when they change
       this.store.timeframe();
       this.store.range();
+      // Force re-run even when same ticker is re-selected
+      this.store.refreshCounter();
       if (ticker) {
         this.loadMarketData(ticker);
       }
