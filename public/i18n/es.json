@@ -50,7 +50,7 @@
     "connectionFailed": "Conexión fallida ✗",
     "apiKeyRequired": "Los proveedores cloud requieren una API key. Consíguela en el dashboard de tu proveedor y pégala arriba.",
     "localInfo": "Tip: Ejecuta un modelo local con llama.cpp (server) u Ollama. Usa http://localhost:PUERTO/v1 como URL base.",
-    "localInProductionWarning": "⚠ Proveedor local detectado. Para usar Ollama/llama.cpp desde esta web, ejecútalo localmente con CORS habilitado: configura OLLAMA_ORIGINS=* (o usa un túnel público como ngrok). Las llamadas directas a localhost son permitidas por los navegadores.",
+    "localInProductionWarning": "Proveedor local detectado. Para usar Ollama/llama.cpp desde esta web, ejecútalo localmente con CORS habilitado: configura OLLAMA_ORIGINS=* (o usa un túnel público como ngrok). Las llamadas directas a localhost son permitidas por los navegadores.",
     "optional": "opcional",
     "connection": "Conexión",
     "modelConfig": "Configuración del Modelo"

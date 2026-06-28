@@ -50,7 +50,7 @@
     "connectionFailed": "Connection failed ✗",
     "apiKeyRequired": "Cloud providers require an API key. Get one from your provider's dashboard and paste it above.",
     "localInfo": "Tip: Run a local model with llama.cpp (server) or Ollama. Use http://localhost:PORT/v1 as the base URL.",
-    "localInProductionWarning": "⚠ Local provider detected. To use Ollama/llama.cpp from this website, run it locally with CORS enabled: set OLLAMA_ORIGINS=* (or use a public tunnel like ngrok). Direct localhost calls are allowed by browsers.",
+    "localInProductionWarning": "Local provider detected. To use Ollama/llama.cpp from this website, run it locally with CORS enabled: set OLLAMA_ORIGINS=* (or use a public tunnel like ngrok). Direct localhost calls are allowed by browsers.",
     "optional": "optional",
     "connection": "Connection",
     "modelConfig": "Model Configuration"
