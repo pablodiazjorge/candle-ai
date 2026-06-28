@@ -315,10 +315,6 @@ The `.github/skills/` directory and `.github/instructions/default.instructions.m
 
 ---
 
-## Author
-
-pablodiazjorge — [github.com/pablodiazjorge](https://github.com/pablodiazjorge)
-
 ## License
 
-MIT
+This project's code is licensed under the [MIT License](LICENSE).
