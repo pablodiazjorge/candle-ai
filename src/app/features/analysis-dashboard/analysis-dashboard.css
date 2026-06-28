@@ -766,17 +766,26 @@
 
 .chat-input {
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--color-border-light);
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 0.8125rem; /* 13px */
+  font-family: inherit;
   outline: none;
+  transition: border-color 0.2s ease;
 }
 
-.chat-input:focus {
-  border-color: var(--color-accent-btn-bg);
+.chat-input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.chat-input:focus,
+.chat-input:focus-visible {
+  outline: none !important;
+  border-color: var(--color-text-secondary);
 }
 
 .chat-input:disabled {

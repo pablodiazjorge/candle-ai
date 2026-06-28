@@ -72,7 +72,7 @@
   --color-negative-bg: rgba(239, 68, 68, 0.1);
 
   /* Focus ring */
-  --color-focus-ring: #60a5fa;
+  --color-focus-ring: #8a8a8a;
 
   /* Surface hover (semi-transparent) */
   --color-surface-hover: rgba(255, 255, 255, 0.05);
@@ -135,7 +135,7 @@
   --color-positive-bg: rgba(8, 153, 133, 0.1);
   --color-negative-bg: rgba(211, 47, 47, 0.08);
 
-  --color-focus-ring: #2563eb;
+  --color-focus-ring: #6a6a6a;
 
   --color-surface-hover: rgba(0, 0, 0, 0.04);
 }

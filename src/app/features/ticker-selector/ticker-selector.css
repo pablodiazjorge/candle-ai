@@ -24,21 +24,29 @@
 
 .search-input {
   width: 100%;
-  padding: 10px 36px 10px 36px;
-  background: var(--color-bg-secondary);
+  height: 42px;
+  padding: 0 36px 0 36px;
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--color-text-primary);
-  font-size: 14px;
+  font-size: 0.875rem; /* 14px */
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
 }
 
 .search-input::placeholder {
   color: var(--color-text-muted);
 }
 
-.search-input:focus {
+.search-input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.search-input:focus,
+.search-input:focus-visible {
+  outline: none !important;
   border-color: var(--color-text-secondary);
 }
 
@@ -148,26 +156,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
-  min-height: 26px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
-  background: var(--color-accent-btn-bg);
-  color: var(--color-accent-btn-text);
-  border: none;
+  background: var(--color-btn-active-bg);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
-  font-size: 1rem; /* 16px */
-  font-weight: 700;
+  font-size: 1.3125rem; /* 21px */
+  font-weight: 400;
   line-height: 1;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .watchlist-add-btn:hover {
-  background: var(--color-accent-btn-hover);
-  box-shadow: 0 2px 8px var(--color-accent-btn-shadow);
-  transform: scale(1.1);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+  background: var(--color-bg-hover);
 }
 
 .watchlist-add-btn:active {
@@ -322,10 +330,17 @@
   font-size: 0.8125rem; /* 13px */
   font-family: inherit;
   outline: none;
+  transition: border-color 0.2s ease;
 }
 
-.modal-search-input:focus {
-  border-color: var(--color-focus-ring);
+.modal-search-input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.modal-search-input:focus,
+.modal-search-input:focus-visible {
+  outline: none !important;
+  border-color: var(--color-text-secondary);
 }
 
 .modal-search-input::placeholder {
