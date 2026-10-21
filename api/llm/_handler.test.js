@@ -3,6 +3,9 @@
 import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import handler from './[...route].js';
+import { isRateLimited } from './_rate-limit.js';
+
+vi.mock('./_rate-limit.js', () => ({ isRateLimited: vi.fn(async () => false) }));
 
 function makeReq({ method = 'POST', headers = {}, route = ['chat', 'completions'], body } = {}) {
   const req = Readable.from(body === undefined ? [] : [Buffer.isBuffer(body) ? body : Buffer.from(body)]);
@@ -30,6 +33,8 @@ const fetchMock = vi.fn();
 
 beforeEach(() => {
   fetchMock.mockReset();
+  vi.mocked(isRateLimited).mockReset();
+  vi.mocked(isRateLimited).mockResolvedValue(false);
   fetchMock.mockImplementation(async () => new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
   vi.stubGlobal('fetch', fetchMock);
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -50,6 +55,20 @@ describe('LLM proxy handler', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
+
+  it('answers 429 with Retry-After when the caller is over the rate limit, without calling upstream', async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(true);
+    const res = await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1', 'X-Target-API-Key': KEY }, body: '{}' });
+    expect(res.status).toBe(429);
+    expect(res.headers['retry-after']).toBe('60');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('counts every proxied request against the rate limit, valid or not', async () => {
+    await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com.evil.com' }, body: '{}' });
+    await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' }, body: '{}' });
+    expect(isRateLimited).toHaveBeenCalledTimes(2);
+  });
 
   it('answers 403 when the target header is missing or points to localhost', async () => {
     expect((await call({ body: '{}' })).status).toBe(403);
