@@ -3,7 +3,7 @@
  * Works with Ollama, llama.cpp, DeepSeek, OpenAI, Groq, Together AI, etc.
  *
  * In production (non-localhost origin), all requests are routed through
- * a Vercel Edge Function proxy at /api/llm to avoid CORS issues.
+ * a Vercel Node.js Function proxy at /api/llm to avoid CORS issues.
  * Most LLM APIs do NOT set Access-Control-Allow-Origin, so direct
  * browser→API fetch() calls are blocked outside localhost.
  *
@@ -176,7 +176,7 @@ export class LlmProvider {
       };
 
       // When proxying, pass the real target URL + API key as headers
-      // so the Vercel Edge Function knows where to forward the request.
+      // so the Vercel Node.js Function knows where to forward the request.
       if (this.useProxy) {
         headers['X-Target-Base-URL'] = this.baseUrl;
         headers['X-Target-API-Key'] = this.apiKey;

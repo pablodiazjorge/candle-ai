@@ -422,8 +422,9 @@ derivation of log-odds Bayesian update.
 
 ### Post-Epic 9: Production LLM Proxy ✅ (2026-06-27)
 
-- [x] Vercel Edge Function `api/llm/[...route].js` proxying LLM
-  requests through a target-URL whitelist
+- [x] Vercel Node.js Function `api/llm/[...route].js` proxying LLM
+  requests through a target-URL whitelist (an exact host allowlist with
+  a per-IP rate limit since 2026-10-21, see `docs/adr/0001-llm-proxy.md`)
 - [x] `LlmProvider.shouldUseProxy(baseUrl)` — cloud URLs proxy,
   localhost bypasses entirely
 - [x] `isLocalOnly` flag on provider presets; production defaults
