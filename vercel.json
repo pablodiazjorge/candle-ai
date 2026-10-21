@@ -3,8 +3,8 @@
   "outputDirectory": "dist/candle-ai/browser",
   "rewrites": [
     {
-      "source": "/api/yahoo/:path*",
-      "destination": "https://query1.finance.yahoo.com/:path*"
+      "source": "/api/yahoo/v8/finance/chart/:symbol",
+      "destination": "https://query1.finance.yahoo.com/v8/finance/chart/:symbol"
     },
     {
       "source": "/((?!api/).*)",
