@@ -313,10 +313,12 @@ npm run test:coverage      # With coverage report
   context pass through that function on their way to the provider. It does not
   log or store them, but you are trusting this deployment. Local providers
   (Ollama, llama.cpp) are called directly by the browser and skip it.
-- **The rate limit is basic.** 20 requests per minute per IP, enforced by a
-  Vercel Firewall rule. It does not stop abuse spread over many IPs, Vercel
-  counts it per region, and if the rule is missing or the check fails the proxy
-  keeps working without a limit.
+- **The rate limit is basic.** Vercel Firewall rule `llm-proxy rate limit`:
+  Request Path starts with `/api/llm/`, fixed window 60 s, 20 requests per IP,
+  action 429; configured in the Vercel dashboard, not in this repository. It is
+  applied at the edge, before the function runs. It does not stop abuse spread
+  over many IPs, Vercel counts it per region, and if the rule is removed the
+  proxy keeps working without a limit.
 - **No end-to-end tests yet.** All tests are Vitest unit tests; the proxy is
   tested with a simulated request and a mocked `fetch`, not against a deployed
   function.
