@@ -27,7 +27,7 @@ export function resolveTarget(rawBase, routeSegments) {
   const basePath = base.pathname.replace(/\/+$/, '');
   if (!basePaths.has(basePath)) return null;            // the provider's API root, nothing else
 
-  // Vercel may deliver the catch-all as an array or as one 'a/b' string: normalise both.
+  // The endpoint files pass an array; a single 'a/b' string is normalised too.
   const segments = (Array.isArray(routeSegments) ? routeSegments : String(routeSegments ?? '').split('/')).filter(Boolean);
   if (segments.some((s) => s === '.' || s === '..' || /[\\/?#%]/.test(s))) return null;
   const apiPath = '/' + segments.join('/');

@@ -1,14 +1,18 @@
 /**
- * Vercel Node.js Function - LLM API proxy (catch-all route)
+ * LLM API proxy - shared logic for the endpoint functions.
  *
- * Matches: /api/llm/models and /api/llm/chat/completions only.
+ * Served by one Vercel Node.js Function per allowed endpoint, each with a fixed route:
+ *   api/llm/models.js            -> /api/llm/models            (['models'])
+ *   api/llm/chat/completions.js  -> /api/llm/chat/completions  (['chat', 'completions'])
+ * There is no catch-all: outside Next.js, Vercel does not support [...param] files in api/.
+ * This file starts with "_", so Vercel does not deploy it as a function.
  *
  * Most cloud LLM APIs do not send CORS headers, so in production the
- * browser calls this same-origin function instead. The frontend sends:
+ * browser calls these same-origin functions instead. The frontend sends:
  *   X-Target-Base-URL: https://api.deepseek.com/v1
  *   X-Target-API-Key:  <the user's key>
  *
- * The function validates the target against an exact allowlist of provider
+ * The proxy validates the target against an exact allowlist of provider
  * hosts, base paths and endpoints (_target.js), forwards only content-type,
  * accept and the key as a Bearer token, never follows redirects, caps the
  * body at 256 KB and returns generic errors. The key is never logged.
@@ -22,11 +26,16 @@ import { resolveTarget } from './_target.js';
 const MAX_BODY = 256 * 1024;
 const FORWARDED = ['content-type', 'accept'];
 
-export default async function handler(req, res) {
+/**
+ * Proxy one request to the provider endpoint named by `segments`
+ * (for example ['chat', 'completions']). The route comes from the endpoint
+ * file, never from the request.
+ */
+export async function proxy(req, res, segments) {
   if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
   if (await isRateLimited(req)) return json(res, 429, { error: 'Too many requests' }, { 'retry-after': '60' });
 
-  const target = resolveTarget(req.headers['x-target-base-url'], req.query?.route);
+  const target = resolveTarget(req.headers['x-target-base-url'], segments);
   if (!target) return json(res, 403, { error: 'Target not allowed' }); // no echo of the input
 
   const headers = Object.fromEntries(FORWARDED.filter((h) => req.headers[h]).map((h) => [h, req.headers[h]]));
