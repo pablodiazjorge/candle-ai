@@ -35,8 +35,7 @@ key, so there is no server-side key to keep.
 Option C. The proxy is one Vercel Node.js Function per allowed endpoint, `api/llm/models.js` and
 `api/llm/chat/completions.js`, each with its route fixed in the file. They share the logic in
 `api/llm/_proxy.js`, with the validation in `api/llm/_target.js` (`resolveTarget()`, pure and unit
-tested) and the rate limit in `api/llm/_rate-limit.js`. Files in `api/` that start with `_` are not
-deployed as functions. There is no catch-all because Vercel does not support `[...param]` files
+tested). Files in `api/` that start with `_` are not deployed as functions. There is no catch-all because Vercel does not support `[...param]` files
 outside Next.js: the catch-all only matched one path segment and got an empty route, so
 `/api/llm/chat/completions` answered 404 and `/api/llm/models` answered 403, as seen in production
 on 2026-10-21.
@@ -88,22 +87,26 @@ What the handler does:
   owner, never the headers, because they carry the key. Responses are `cache-control: no-store`.
 - Passes the provider's status and body through, so a 401 for a bad key reaches the app as is.
 
-Rate limit. Every request to the proxy, valid or not, is checked with `checkRateLimit()` from
-`@vercel/firewall`, rate limit ID `llm-proxy`. The limit is 20 requests per 60 seconds per IP,
-fixed window, and over it the proxy answers 429 with `Retry-After: 60`. The rule itself lives in
-the project's Vercel Firewall (a rule whose condition is `@vercel/firewall` with that ID, and
-action Rate Limit). Only `host`, `x-real-ip` and `x-forwarded-for` are passed to the check,
-because the library copies every header it receives to the firewall request. If the rule is
-missing or the check fails or takes more than one second, the proxy fails open and logs it.
+Rate limit. The limit is not in the code. It is a Vercel Firewall rule, `llm-proxy rate limit`:
+Request Path starts with `/api/llm/`, fixed window 60 s, 20 requests per IP, action 429;
+configured in the Vercel dashboard. The firewall applies it at the edge, before the request
+reaches the function, so every request to the proxy counts, valid or not, and over the limit
+the function never runs.
 
 **Rationale.**
 A counter in memory does not work in serverless functions: each instance keeps its own. The
 Vercel Firewall keeps the counter at the edge, is available on the Hobby plan (one rate limit rule
 per project) and needs no new account, unlike a hosted Redis. `vercel.json` can only deny or
 challenge requests, not rate limit them, so the rule is configured in the dashboard or with
-`vercel firewall rules add`. Checking from the code keeps the limit visible and tested in the
-repository. Failing open is deliberate: the allowlist is the security boundary, and the limit
-protects cost and abuse; a missing rule should not take the LLM mode down.
+`vercel firewall rules add`. The allowlist is the security boundary; the limit protects cost
+and abuse.
+
+The first version of this limit called `checkRateLimit()` from `@vercel/firewall` inside the
+function. In production, on 2026-10-21, those checks never limited anything: the rule counted
+correctly when its API was called from outside, but the checks made by the function always got
+a 204 and 25 requests in a row gave no 429. A rule on the path is applied at the edge, adds no
+call per request and does not depend on a rate limit key the client could forge, so the package
+was dropped.
 
 **Consequences and what it does not cover.**
 
@@ -113,8 +116,8 @@ protects cost and abuse; a missing rule should not take the LLM mode down.
 - It is still a relay for the allowed providers: anyone can use it with their own key to call
   those two endpoints. The rate limit caps that per IP; it does not stop abuse spread over many
   IPs, and Vercel counts per region, so traffic from several regions can go over the limit.
-- Without the firewall rule there is no rate limit at all (fail open). The proxy logs
-  "rate limit rule 'llm-proxy' is not configured" when that happens.
+- The rule lives only in the Vercel dashboard, not in the repository. If it is removed or
+  disabled there is no rate limit at all, and nothing in the code notices.
 - Adding a provider means adding its host and base path to `_target.js` and a test. A custom
   provider outside the list works on localhost, if it sends CORS headers, but not in production.
   Adding an endpoint means adding it to `ALLOWED_PATHS` in `_target.js` and a file under
@@ -130,6 +133,6 @@ protects cost and abuse; a missing rule should not take the LLM mode down.
     -H "X-Target-Base-URL: https://api.openai.com@evil.com"
   ```
 
-Tests: `api/llm/_target.test.js` (attack cases), `api/llm/_handler.test.js`
-(`_proxy.js` and the two endpoint files, simulated request and response, mocked `fetch`) and
-`api/llm/_rate-limit.test.js`.
+Tests: `api/llm/_target.test.js` (attack cases) and `api/llm/_handler.test.js`
+(`_proxy.js` and the two endpoint files, simulated request and response, mocked `fetch`). The
+rate limit is not covered by tests: it lives in the Vercel Firewall, outside the repository.

@@ -16,11 +16,11 @@
  * hosts, base paths and endpoints (_target.js), forwards only content-type,
  * accept and the key as a Bearer token, never follows redirects, caps the
  * body at 256 KB and returns generic errors. The key is never logged.
- * Every request counts against a per-IP rate limit in the Vercel Firewall
- * (_rate-limit.js); over the limit it answers 429.
+ * The per-IP rate limit is not in this code: a Vercel Firewall rule for every
+ * path under /api/llm/ answers 429 at the edge, before the request reaches
+ * the function.
  * See docs/adr/0001-llm-proxy.md.
  */
-import { isRateLimited } from './_rate-limit.js';
 import { resolveTarget } from './_target.js';
 
 const MAX_BODY = 256 * 1024;
@@ -33,7 +33,6 @@ const FORWARDED = ['content-type', 'accept'];
  */
 export async function proxy(req, res, segments) {
   if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
-  if (await isRateLimited(req)) return json(res, 429, { error: 'Too many requests' }, { 'retry-after': '60' });
 
   const target = resolveTarget(req.headers['x-target-base-url'], segments);
   if (!target) return json(res, 403, { error: 'Target not allowed' }); // no echo of the input

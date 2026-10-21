@@ -6,11 +6,8 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { proxy } from './_proxy.js';
-import { isRateLimited } from './_rate-limit.js';
 import completions from './chat/completions.js';
 import models from './models.js';
-
-vi.mock('./_rate-limit.js', () => ({ isRateLimited: vi.fn(async () => false) }));
 
 const ENDPOINTS = [
   ['models', models],
@@ -45,8 +42,6 @@ const fetchMock = vi.fn();
 
 beforeEach(() => {
   fetchMock.mockReset();
-  vi.mocked(isRateLimited).mockReset();
-  vi.mocked(isRateLimited).mockResolvedValue(false);
   fetchMock.mockImplementation(async () => new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json' } }));
   vi.stubGlobal('fetch', fetchMock);
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -103,21 +98,6 @@ describe('LLM proxy endpoints', () => {
 });
 
 describe('LLM proxy handler', () => {
-  it('answers 429 with Retry-After when the caller is over the rate limit, without calling upstream', async () => {
-    vi.mocked(isRateLimited).mockResolvedValue(true);
-    const res = await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1', 'X-Target-API-Key': KEY }, body: '{}' });
-    expect(res.status).toBe(429);
-    expect(res.headers['retry-after']).toBe('60');
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('counts every proxied request against the rate limit, valid or not', async () => {
-    await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com.evil.com' }, body: '{}' });
-    await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' }, body: '{}' });
-    await call({ method: 'GET', headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' } }, models);
-    expect(isRateLimited).toHaveBeenCalledTimes(3);
-  });
-
   it('answers 403 when the target header is missing or points to localhost', async () => {
     expect((await call({ body: '{}' })).status).toBe(403);
     expect((await call({ headers: { 'X-Target-Base-URL': 'http://localhost:11434/v1' }, body: '{}' })).status).toBe(403);

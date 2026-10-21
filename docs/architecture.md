@@ -223,8 +223,8 @@ environment via `shouldUseProxy(baseUrl)`: cloud URLs route through the proxy;
 localhost URLs bypass it entirely (the proxy can't reach the user's
 machine). The proxy now accepts only an exact allowlist of provider
 hosts, base paths and two endpoints (`/models`, `/chat/completions`) and
-is rate limited per IP; the first version used a prefix check that let
-other hosts through. API keys are forwarded via
+is rate limited per IP by a Vercel Firewall rule on `/api/llm/`, at the
+edge; the first version used a prefix check that let other hosts through. API keys are forwarded via
 `X-Target-API-Key` header — never logged, never stored server-side.
 
 ---
@@ -754,7 +754,10 @@ requests are routed through one Vercel Node.js Function per endpoint,
 `api/llm/_proxy.js`), which forward them to the target API. The app
 calls them from the same origin, so they send no CORS headers. They accept
 only an exact allowlist of provider hosts, base paths and two endpoints,
-and are rate limited per IP. Local providers (Ollama, llama.cpp) bypass the
+and are rate limited per IP by the Vercel Firewall rule
+`llm-proxy rate limit`: Request Path starts with `/api/llm/`, fixed window
+60 s, 20 requests per IP, action 429; configured in the Vercel dashboard,
+and applied at the edge before the function runs. Local providers (Ollama, llama.cpp) bypass the
 proxy — the browser calls them directly, which works because browsers
 treat `localhost` as a secure context. The proxy is only needed for
 cloud APIs; it does not store the key or the analysis context and logs
