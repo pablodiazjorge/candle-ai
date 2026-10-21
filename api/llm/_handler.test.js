@@ -1,17 +1,28 @@
 // @vitest-environment node
-// Tests for the LLM proxy handler with a simulated req/res and a mocked fetch: no network.
+// Tests for the LLM proxy (_proxy.js) and its two endpoint functions, with a simulated
+// req/res and a mocked fetch: no network.
+import { readdirSync } from 'node:fs';
 import { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import handler from './[...route].js';
+import { proxy } from './_proxy.js';
 import { isRateLimited } from './_rate-limit.js';
+import completions from './chat/completions.js';
+import models from './models.js';
 
 vi.mock('./_rate-limit.js', () => ({ isRateLimited: vi.fn(async () => false) }));
 
-function makeReq({ method = 'POST', headers = {}, route = ['chat', 'completions'], body } = {}) {
+const ENDPOINTS = [
+  ['models', models],
+  ['chat/completions', completions],
+];
+
+// No req.query by default: the route comes from the endpoint file, as in production.
+function makeReq({ method = 'POST', headers = {}, query, body } = {}) {
   const req = Readable.from(body === undefined ? [] : [Buffer.isBuffer(body) ? body : Buffer.from(body)]);
   req.method = method;
   req.headers = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
-  req.query = { route };
+  if (query !== undefined) req.query = query;
   return req;
 }
 
@@ -22,7 +33,8 @@ function makeRes() {
   return res;
 }
 
-async function call(reqOptions) {
+/** Call an endpoint handler (default: chat/completions). */
+async function call(reqOptions, handler = completions) {
   const res = makeRes();
   await handler(makeReq(reqOptions), res);
   return res;
@@ -45,17 +57,52 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('LLM proxy handler', () => {
-  it.each(['https://api.openai.com.evil.com', 'https://api.openai.com@evil.com'])(
-    'answers 403 to the Anexo C.7 trick %s without calling upstream or echoing it',
-    async (base) => {
-      const res = await call({ headers: { 'X-Target-Base-URL': base }, body: '{}' });
-      expect(res.status).toBe(403);
-      expect(res.body).not.toContain('evil');
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
+describe('LLM proxy endpoints', () => {
+  it('deploys one function per allowed endpoint and no dynamic [param] files', () => {
+    // Outside Next.js, Vercel does not support [...param] files: the old catch-all left
+    // /api/llm/chat/completions answering 404. Files starting with "_" are not deployed.
+    const dir = fileURLToPath(new URL('.', import.meta.url));
+    const files = readdirSync(dir, { recursive: true })
+      .map((f) => String(f).replaceAll('\\', '/'))
+      .filter((f) => f.endsWith('.js') && !f.split('/').some((part) => part.startsWith('_')));
+    expect(files.sort()).toEqual(['chat/completions.js', 'models.js']);
+  });
 
+  it.each(ENDPOINTS)('%s forwards to the same path on the provider', async (path, handler) => {
+    const res = await call({ method: 'GET', headers: { 'X-Target-Base-URL': 'https://api.deepseek.com/v1' } }, handler);
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(`https://api.deepseek.com/v1/${path}`);
+  });
+
+  it.each(ENDPOINTS.flatMap(([path, handler]) => [
+    [path, 'https://api.openai.com.evil.com', handler],
+    [path, 'https://api.openai.com@evil.com', handler],
+  ]))('%s answers 403 to the Anexo C.7 trick %s without calling upstream or echoing it', async (_path, base, handler) => {
+    const res = await call({ headers: { 'X-Target-Base-URL': base }, body: '{}' }, handler);
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain('evil');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no query at all', undefined],
+    ['an empty query, as Vercel delivered it to the old catch-all', {}],
+    ['a query that names /models', { route: ['models'] }],
+    ['a query that names /chat/completions', { route: 'chat/completions' }],
+    ['a query that names a route outside the allowlist', { route: 'files' }],
+  ])('ignores req.query: %s', async (_label, query) => {
+    const headers = { 'X-Target-Base-URL': 'https://api.openai.com/v1' };
+    expect((await call({ headers, query, body: '{}' }, completions)).status).toBe(200);
+    expect((await call({ method: 'GET', headers, query }, models)).status).toBe(200);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://api.openai.com/v1/chat/completions',
+      'https://api.openai.com/v1/models',
+    ]);
+  });
+});
+
+describe('LLM proxy handler', () => {
   it('answers 429 with Retry-After when the caller is over the rate limit, without calling upstream', async () => {
     vi.mocked(isRateLimited).mockResolvedValue(true);
     const res = await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1', 'X-Target-API-Key': KEY }, body: '{}' });
@@ -67,7 +114,8 @@ describe('LLM proxy handler', () => {
   it('counts every proxied request against the rate limit, valid or not', async () => {
     await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com.evil.com' }, body: '{}' });
     await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' }, body: '{}' });
-    expect(isRateLimited).toHaveBeenCalledTimes(2);
+    await call({ method: 'GET', headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' } }, models);
+    expect(isRateLimited).toHaveBeenCalledTimes(3);
   });
 
   it('answers 403 when the target header is missing or points to localhost', async () => {
@@ -78,16 +126,19 @@ describe('LLM proxy handler', () => {
   });
 
   it('answers 403 to endpoints outside the allowlist', async () => {
-    const res = await call({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' }, route: ['files'] });
+    const res = makeRes();
+    await proxy(makeReq({ headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' } }), res, ['files']);
     expect(res.status).toBe(403);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('answers 405 to other methods, including the CORS preflight, without CORS headers', async () => {
-    for (const method of ['OPTIONS', 'PUT', 'DELETE']) {
-      const res = await call({ method, headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' } });
-      expect(res.status).toBe(405);
-      expect(Object.keys(res.headers).map((h) => h.toLowerCase())).not.toContain('access-control-allow-origin');
+    for (const [, handler] of ENDPOINTS) {
+      for (const method of ['OPTIONS', 'PUT', 'DELETE']) {
+        const res = await call({ method, headers: { 'X-Target-Base-URL': 'https://api.openai.com/v1' } }, handler);
+        expect(res.status).toBe(405);
+        expect(Object.keys(res.headers).map((h) => h.toLowerCase())).not.toContain('access-control-allow-origin');
+      }
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -110,6 +161,7 @@ describe('LLM proxy handler', () => {
     expect(res.status).toBe(200);
     expect(res.body).toBe('{"ok":true}');
     expect(res.headers['content-type']).toBe('application/json');
+    expect(res.headers['cache-control']).toBe('no-store');
     expect(Object.keys(res.headers).map((h) => h.toLowerCase())).not.toContain('access-control-allow-origin');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -124,13 +176,13 @@ describe('LLM proxy handler', () => {
   it('forwards the health check as a GET to /models without a body', async () => {
     const res = await call({
       method: 'GET',
-      route: 'models',
       headers: { 'X-Target-Base-URL': 'https://api.groq.com/openai/v1', 'X-Target-API-Key': KEY },
-    });
+    }, models);
     expect(res.status).toBe(200);
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.groq.com/openai/v1/models');
     expect(init.method).toBe('GET');
+    expect(init.redirect).toBe('error');
     expect(init.body).toBeUndefined();
     expect(init.headers).toEqual({ authorization: `Bearer ${KEY}` });
   });

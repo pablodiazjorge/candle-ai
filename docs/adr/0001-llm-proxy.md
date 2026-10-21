@@ -11,12 +11,12 @@ Most cloud LLM APIs (OpenAI, DeepSeek, Groq, Together AI...) do not send CORS he
 browser cannot call them from `candle-ai.pablodiazjorge.com`. Local providers (Ollama, llama.cpp)
 do not have this problem: the browser calls `localhost` directly and never goes through Vercel.
 
-The first version of `api/llm/[...route].js` (June 2026) checked the `X-Target-Base-URL` header
-with `startsWith` against a list that also had `http://localhost` and `http://127.0.0.1`. It
-accepted `https://api.openai.com.evil.com` and `https://api.openai.com@evil.com`, forwarded every
-request header, followed redirects, read bodies of any size, answered with CORS `*` and echoed
-the target URL and `err.message` in its errors. In practice it was an open proxy running inside
-Vercel's network (SSRF).
+The first version of the proxy (June 2026), one catch-all function in `api/llm/`, checked the
+`X-Target-Base-URL` header with `startsWith` against a list that also had `http://localhost` and
+`http://127.0.0.1`. It accepted `https://api.openai.com.evil.com` and
+`https://api.openai.com@evil.com`, forwarded every request header, followed redirects, read
+bodies of any size, answered with CORS `*` and echoed the target URL and `err.message` in its
+errors. In practice it was an open proxy running inside Vercel's network (SSRF).
 
 **Options considered.**
 
@@ -32,9 +32,14 @@ D. A backend that keeps the key on the server. The app has no accounts and users
 key, so there is no server-side key to keep.
 
 **Decision.**
-Option C. The proxy is a Vercel Node.js Function in `api/llm/[...route].js`, with the validation in
-`api/llm/_target.js` (`resolveTarget()`, pure and unit tested) and the rate limit in
-`api/llm/_rate-limit.js`. Files in `api/` that start with `_` are not deployed as functions.
+Option C. The proxy is one Vercel Node.js Function per allowed endpoint, `api/llm/models.js` and
+`api/llm/chat/completions.js`, each with its route fixed in the file. They share the logic in
+`api/llm/_proxy.js`, with the validation in `api/llm/_target.js` (`resolveTarget()`, pure and unit
+tested) and the rate limit in `api/llm/_rate-limit.js`. Files in `api/` that start with `_` are not
+deployed as functions. There is no catch-all because Vercel does not support `[...param]` files
+outside Next.js: the catch-all only matched one path segment and got an empty route, so
+`/api/llm/chat/completions` answered 404 and `/api/llm/models` answered 403, as seen in production
+on 2026-10-21.
 
 What `resolveTarget()` accepts:
 
@@ -112,9 +117,11 @@ protects cost and abuse; a missing rule should not take the LLM mode down.
   "rate limit rule 'llm-proxy' is not configured" when that happens.
 - Adding a provider means adding its host and base path to `_target.js` and a test. A custom
   provider outside the list works on localhost, if it sends CORS headers, but not in production.
+  Adding an endpoint means adding it to `ALLOWED_PATHS` in `_target.js` and a file under
+  `api/llm/` that calls `proxy()` with its route.
 - No streaming: the provider's response is read whole and sent back.
 - There is no end-to-end test against a deployed function yet. The closing check after each deploy
-  is that these two requests answer 403:
+  is that these two requests answer 403 (a 404 means the function is not deployed at that path):
 
   ```bash
   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://candle-ai.pablodiazjorge.com/api/llm/chat/completions \
@@ -124,4 +131,5 @@ protects cost and abuse; a missing rule should not take the LLM mode down.
   ```
 
 Tests: `api/llm/_target.test.js` (attack cases), `api/llm/_handler.test.js`
-(simulated request and response, mocked `fetch`) and `api/llm/_rate-limit.test.js`.
+(`_proxy.js` and the two endpoint files, simulated request and response, mocked `fetch`) and
+`api/llm/_rate-limit.test.js`.

@@ -215,10 +215,11 @@ endpoint would not receive the parameter.
 **Production CORS proxy (2026-06-27).**
 Replaced by [`docs/adr/0001-llm-proxy.md`](adr/0001-llm-proxy.md) (2026-10-21).
 Cloud LLM APIs (OpenAI, DeepSeek, Groq, etc.) do not set CORS headers,
-so direct browser `fetch()` calls are blocked outside localhost. A
-Vercel Node.js Function at `api/llm/[...route].js` proxies cloud LLM
-requests in production. The frontend detects the environment via
-`shouldUseProxy(baseUrl)`: cloud URLs route through the proxy;
+so direct browser `fetch()` calls are blocked outside localhost. One
+Vercel Node.js Function per endpoint, `api/llm/models.js` and
+`api/llm/chat/completions.js` (shared logic in `api/llm/_proxy.js`),
+proxies cloud LLM requests in production. The frontend detects the
+environment via `shouldUseProxy(baseUrl)`: cloud URLs route through the proxy;
 localhost URLs bypass it entirely (the proxy can't reach the user's
 machine). The proxy now accepts only an exact allowlist of provider
 hosts, base paths and two endpoints (`/models`, `/chat/completions`) and
@@ -748,11 +749,12 @@ the one the app uses. No separate backend is required.
 **LLM CORS proxy.**
 Replaced by [`docs/adr/0001-llm-proxy.md`](adr/0001-llm-proxy.md) (2026-10-21).
 Cloud LLM APIs do not set CORS headers. In production (Vercel), cloud LLM
-requests are routed through a Vercel Node.js Function at
-`api/llm/[...route].js` which forwards them to the target API. The app
-calls it from the same origin, so it sends no CORS headers. It accepts
+requests are routed through one Vercel Node.js Function per endpoint,
+`api/llm/models.js` and `api/llm/chat/completions.js` (shared logic in
+`api/llm/_proxy.js`), which forward them to the target API. The app
+calls them from the same origin, so they send no CORS headers. They accept
 only an exact allowlist of provider hosts, base paths and two endpoints,
-and is rate limited per IP. Local providers (Ollama, llama.cpp) bypass the
+and are rate limited per IP. Local providers (Ollama, llama.cpp) bypass the
 proxy — the browser calls them directly, which works because browsers
 treat `localhost` as a secure context. The proxy is only needed for
 cloud APIs; it does not store the key or the analysis context and logs
