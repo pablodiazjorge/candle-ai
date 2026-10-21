@@ -15,10 +15,11 @@ popularized by Michael Nygard and formalized by the MADR project.
 
 ## System Context
 
-Candle AI is a single-page application that runs entirely in the browser. It
-has no backend server, no database, and no server-side rendering. The only
-outbound network requests are to Yahoo Finance for market data and to an
-LLM endpoint for AI analysis — both initiated client-side.
+Candle AI is a single-page application that runs in the browser. It has no
+backend of its own except an optional proxy for the LLM mode, no database,
+and no server-side rendering. The only outbound network requests are to
+Yahoo Finance for market data and to an LLM endpoint for AI analysis — both
+initiated client-side.
 
 ```
 Browser
@@ -32,7 +33,7 @@ Browser
 |  | - SMA, EMA, Volume       |  |  Angular Components          |  |
 |  | - ATR(14)                |  |  Signal-based State          |  |
 |  | - Volume Profile         |  |  Confluence Engine V2        |  |
-|  | - Regime Detection       |  |  (Bayesian scoring)          |  |
+|  | - Regime Detection       |  |  (log-odds scoring)          |  |
 |  | - Volume Signals         |  |  Market Context (VIX/DXY)    |  |
 |  +--------------------------+  +------------------------------+  |
 |                                                                 |
@@ -63,10 +64,12 @@ The LLM is now a narrative layer over deterministic scoring output.
 
 These principles guided every design decision in this document.
 
-**Principle 1: Zero backend.**
-Everything runs in the browser. No server, no database, no API middleware.
-The user's data never leaves their machine except to the LLM endpoint they
-configure themselves.
+**Principle 1: No backend of its own.**
+The analysis runs in the browser. No database and no server of its own,
+except an optional proxy for the LLM mode. The user's data never leaves their
+machine except to the LLM endpoint they configure themselves; in production,
+cloud providers are reached through that proxy, which does not log or store
+the key (see [`docs/adr/0001-llm-proxy.md`](adr/0001-llm-proxy.md)).
 
 **Principle 2: Non-blocking UI.**
 Any computation on more than 100 data points runs in a Web Worker. The main
@@ -210,14 +213,17 @@ by URL is a heuristic; a model that supports JSON mode on a non-local
 endpoint would not receive the parameter.
 
 **Production CORS proxy (2026-06-27).**
+Replaced by [`docs/adr/0001-llm-proxy.md`](adr/0001-llm-proxy.md) (2026-10-21).
 Cloud LLM APIs (OpenAI, DeepSeek, Groq, etc.) do not set CORS headers,
 so direct browser `fetch()` calls are blocked outside localhost. A
-Vercel Edge Function at `api/llm/[...route].js` proxies all LLM
+Vercel Node.js Function at `api/llm/[...route].js` proxies cloud LLM
 requests in production. The frontend detects the environment via
 `shouldUseProxy(baseUrl)`: cloud URLs route through the proxy;
 localhost URLs bypass it entirely (the proxy can't reach the user's
-machine). The proxy validates target URLs against a whitelist of known
-providers to prevent open-proxy abuse. API keys are forwarded via
+machine). The proxy now accepts only an exact allowlist of provider
+hosts, base paths and two endpoints (`/models`, `/chat/completions`) and
+is rate limited per IP; the first version used a prefix check that let
+other hosts through. API keys are forwarded via
 `X-Target-API-Key` header — never logged, never stored server-side.
 
 ---
@@ -440,9 +446,8 @@ context.
 **Consequences.**
 Services that depend on Angular DI (TickerStore, AnalysisService) are
 not unit-tested in isolation. They are covered by the pure-function tests
-of their underlying algorithms. End-to-end integration tests use Playwright
-(`e2e/critical-flow.spec.ts`, 5 tests) with mocked Yahoo Finance API responses
-for deterministic critical-flow validation (see ADR-017). Error monitoring via `@sentry/angular` was evaluated and rejected (2026-06-27): the SDK officially supports Angular 14–20, while the project uses Angular 22. For a client-only application without a backend, the browser console provides sufficient error visibility. This decision may be revisited if Angular 22 enters the official support range.
+of their underlying algorithms. There are no end-to-end tests for now; they
+are planned (Playwright is not part of the project). Error monitoring via `@sentry/angular` was evaluated and rejected (2026-06-27): the SDK officially supports Angular 14–20, while the project uses Angular 22. For a client-side application with no backend of its own, the browser console provides sufficient error visibility. This decision may be revisited if Angular 22 enters the official support range.
 
 ---
 
@@ -522,11 +527,11 @@ Yahoo Finance (or synthetic); LLM analysis goes to a user-configured endpoint. N
 data is stored server-side.
 
 **Decision.**
-Maintain zero-backend architecture. All analysis — including the future
-confluence model — runs client-side.
+Maintain an architecture with no backend of its own. All analysis — including
+the future confluence model — runs client-side.
 
 **Rationale.**
-This is an extension of Principle 1 (Zero Backend). Client-side analysis means:
+This is an extension of Principle 1 (No backend of its own). Client-side analysis means:
 (a) no server costs, (b) no data privacy concerns, (c) instant responsiveness
 (no network round-trip for analysis), (d) works offline with synthetic data. The
 confluence model is computationally trivial (simple arithmetic on a handful of
@@ -572,7 +577,7 @@ confidence tiers.
 
 **Decision.** Replace arithmetic addition with log-odds Bayesian update:
 `logOdds = ln(p/(1-p))`, `newLogOdds = logOdds + clamp(logLR, ±2.0)`,
-return `1/(1+exp(-newLogOdds))`. Evidence weights are calibrated in log-LR
+return `1/(1+exp(-newLogOdds))`. Evidence weights are hand-set in log-LR
 scale (e.g., Grade A candle pattern = 0.40 log-LR, equivalent to LR ≈ 1.49).
 A cap of ±2.0 prevents correlated signals from producing absurd confidence.
 
@@ -607,7 +612,7 @@ neutral context is returned (no adjustment).
 ### ADR-016: Product Naming and Two-Layer Communication (Epic 9)
 
 **Context.** The product is named "Candle AI" but the core differentiator
-is the Confluence Engine (Bayesian probabilistic scoring, SMC detection,
+is the Confluence Engine (naive-Bayes-style log-odds scoring, SMC detection,
 ATR-adaptive risk). The LLM is a narrative wrapper — it explains the
 confluence output but never overrides it. Early copy framed the product
 as "AI-powered," creating an expectation mismatch where users assumed the
@@ -710,7 +715,8 @@ User selects ticker
 
 ## Security Considerations
 
-Candle AI is a client-only application. The only outbound network requests are:
+Candle AI is a client-side application with no backend of its own except an
+optional proxy for the LLM mode. The only outbound network requests are:
 
 1. **Yahoo Finance API** — read-only market data. No authentication.
    Proxied through the Angular dev server in development (`/api/yahoo/*` →
@@ -720,7 +726,10 @@ Candle AI is a client-only application. The only outbound network requests are:
 2. **LLM Endpoint** — user-configured. The API key is stored in `localStorage`
    and sent as a Bearer token. The analysis prompt includes the ticker,
    timeframe, indicator values, and pattern names — not raw candle data —
-   to minimize data exposure.
+   to minimize data exposure. In production, cloud providers are reached
+   through the same-origin proxy at `/api/llm/*`, which receives the key as
+   `X-Target-API-Key`, forwards it as a Bearer token and does not log or
+   store it (see [`docs/adr/0001-llm-proxy.md`](adr/0001-llm-proxy.md)).
 
 No user data is collected, stored server-side, or transmitted to third
 parties other than the configured LLM endpoint.
@@ -732,17 +741,22 @@ parties other than the configured LLM endpoint.
 **Yahoo Finance proxy.**
 The Yahoo Finance API does not set CORS headers for browser requests.
 In development, the Angular dev server proxies `/api/yahoo/*` requests to
-`query1.finance.yahoo.com`. In production (Vercel), `vercel.json` rewrites
-handle the same routing. No separate backend is required.
+`query1.finance.yahoo.com`. In production (Vercel), a `vercel.json` rewrite
+handles only the chart endpoint (`/api/yahoo/v8/finance/chart/:symbol`),
+the one the app uses. No separate backend is required.
 
 **LLM CORS proxy.**
-Cloud LLM APIs do not set CORS headers. In production (Vercel), LLM
-requests are routed through a serverless Edge Function at
-`api/llm/[...route].js` which forwards them to the target API and adds
-CORS response headers. Local providers (Ollama, llama.cpp) bypass the
+Replaced by [`docs/adr/0001-llm-proxy.md`](adr/0001-llm-proxy.md) (2026-10-21).
+Cloud LLM APIs do not set CORS headers. In production (Vercel), cloud LLM
+requests are routed through a Vercel Node.js Function at
+`api/llm/[...route].js` which forwards them to the target API. The app
+calls it from the same origin, so it sends no CORS headers. It accepts
+only an exact allowlist of provider hosts, base paths and two endpoints,
+and is rate limited per IP. Local providers (Ollama, llama.cpp) bypass the
 proxy — the browser calls them directly, which works because browsers
 treat `localhost` as a secure context. The proxy is only needed for
-cloud APIs and does not store or log any data.
+cloud APIs; it does not store the key or the analysis context and logs
+only the provider host and errors.
 
 **Pattern detection false positives.**
 The pattern detectors are rule-based and generate false positives on noisy
