@@ -46,19 +46,6 @@ const REGIME_BASE: Record<MarketRegime, number> = {
   transitional: 0.50,
 };
 
-/** Evidence modifiers — V1.0 arithmetic (p += modifier, p *= factor) */
-const EVIDENCE = {
-  CHART_PATTERN_A: { aligned: 0.15, counter: 0.08 },
-  CHART_PATTERN_B: { aligned: 0.10, counter: 0.05 },
-  CANDLE_PATTERN_A: { aligned: 0.10, counter: 0.03 },
-  CANDLE_PATTERN_B: { aligned: 0.07, counter: 0.02 },
-  RSI_DIVERGENCE: { aligned: 0.08, counter: 0.05 },
-  MACD_CROSSOVER: { aligned: 0.06, counter: 0.03 },
-  VOLUME_CONFIRM: 1.2,
-  VOLUME_ABSENT: 0.8,
-  VOLUME_CONTRA: 0.7,
-};
-
 /**
  * Evidence weights in log-likelihood-ratio (log-LR) scale — V2.0.
  *
