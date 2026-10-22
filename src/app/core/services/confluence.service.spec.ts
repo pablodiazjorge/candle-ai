@@ -129,22 +129,35 @@ import { IndicatorResults, RegimeResult, MarketRegime } from '../models/indicato
 
 // ─── Test Helpers ──────────────────────────────────────────────────
 
-function makeCandles(count: number, trend: 'up' | 'down' | 'flat' = 'flat'): Candle[] {
+/** Seeded PRNG (mulberry32), so the same seed always yields the same candles. */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeCandles(count: number, trend: 'up' | 'down' | 'flat' = 'flat', seed = 42): Candle[] {
+  const random = seededRandom(seed);
   const candles: Candle[] = [];
   let price = 100;
   const step = trend === 'up' ? 0.5 : trend === 'down' ? -0.5 : 0;
   for (let i = 0; i < count; i++) {
-    const noise = (Math.random() - 0.5) * 2;
+    const noise = (random() - 0.5) * 2;
     const open = price;
     price += step + noise;
     const close = price;
     candles.push({
       time: 1700000000 + i * 86400,
       open: Math.round(open * 100) / 100,
-      high: Math.round((Math.max(open, close) + Math.random() * 1) * 100) / 100,
-      low: Math.round((Math.min(open, close) - Math.random() * 1) * 100) / 100,
+      high: Math.round((Math.max(open, close) + random() * 1) * 100) / 100,
+      low: Math.round((Math.min(open, close) - random() * 1) * 100) / 100,
       close: Math.round(close * 100) / 100,
-      volume: 1000000 + Math.floor(Math.random() * 500000),
+      volume: 1000000 + Math.floor(random() * 500000),
     });
     price = close;
   }
@@ -540,8 +553,9 @@ describe('ConfluenceService', () => {
       }
     });
 
-    it('HIGH tier uses 1:2 minimum R:R', () => {
-      // Need enough patterns to reach HIGH tier
+    it('HIGH tier uses 1:2 minimum R:R outside high volatility', () => {
+      // Need enough patterns to reach HIGH tier. The seeded candles keep the
+      // ATR percentile at or below 0.8; above it, HIGH tier uses 1:1.5 by design.
       const candles = makeCandles(30, 'up');
       const patterns = [
         makePattern('double_bottom', 'bullish', 'A'),
@@ -551,9 +565,8 @@ describe('ConfluenceService', () => {
       const result = service.score(
         makeRegime('strong_uptrend'), patterns, null, candles, 'TEST',
       );
-      if (result.tier === 'HIGH' && result.riskParams.riskRewardRatio) {
-        expect(result.riskParams.riskRewardRatio).toBeGreaterThanOrEqual(2.0);
-      }
+      expect(result.tier).toBe('HIGH');
+      expect(result.riskParams.riskRewardRatio).toBeGreaterThanOrEqual(2.0);
     });
   });
 
