@@ -1,5 +1,7 @@
 # Candle AI — Trading Analysis Dashboard
 
+> **Status:** finished in October 2026. No new features or dependency updates; the live demo at [candle-ai.pablodiazjorge.com](https://candle-ai.pablodiazjorge.com) stays online.
+
 **Confluence-powered technical analysis. Optional AI narration.**
 Local-first. Runs in your browser. No backend of its own except an optional proxy for the LLM mode.
 
@@ -63,7 +65,7 @@ For the full rationale behind every architectural decision, see
 | Caching | Dexie.js (IndexedDB) | 1-hour TTL for market data |
 | Styling | Tailwind CSS 4 + CSS Custom Properties | Dark/light theme, responsive |
 | i18n | ngx-translate v18 | Runtime language switching (EN/ES) |
-| Testing | Vitest + jsdom | 239 tests (12 files), sub-second startup |
+| Testing | Vitest + jsdom | 243 tests (12 files), sub-second startup |
 
 ---
 
@@ -295,7 +297,7 @@ ng build --configuration production
 ## Tests
 
 ```bash
-npm run test:unit          # Vitest (239 tests)
+npm run test:unit          # Vitest (243 tests)
 npm run test:unit:watch    # Watch mode
 npm run test:coverage      # With coverage report
 ```
@@ -319,7 +321,7 @@ npm run test:coverage      # With coverage report
   applied at the edge, before the function runs. It does not stop abuse spread
   over many IPs, Vercel counts it per region, and if the rule is removed the
   proxy keeps working without a limit.
-- **No end-to-end tests yet.** All tests are Vitest unit tests; the proxy is
+- **No end-to-end tests.** All tests are Vitest unit tests; the proxy is
   tested with a simulated request and a mocked `fetch`, not against a deployed
   function.
 - **Market data comes from an unofficial Yahoo Finance endpoint.** It can change
