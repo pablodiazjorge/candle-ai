@@ -63,7 +63,7 @@ For the full rationale behind every architectural decision, see
 | Caching | Dexie.js (IndexedDB) | 1-hour TTL for market data |
 | Styling | Tailwind CSS 4 + CSS Custom Properties | Dark/light theme, responsive |
 | i18n | ngx-translate v18 | Runtime language switching (EN/ES) |
-| Testing | Vitest + jsdom | 237 tests (13 files), sub-second startup |
+| Testing | Vitest + jsdom | 239 tests (12 files), sub-second startup |
 
 ---
 
@@ -295,7 +295,7 @@ ng build --configuration production
 ## Tests
 
 ```bash
-npm run test:unit          # Vitest (237 tests)
+npm run test:unit          # Vitest (239 tests)
 npm run test:unit:watch    # Watch mode
 npm run test:coverage      # With coverage report
 ```
