@@ -110,13 +110,16 @@ const TEMPORAL_LAMBDA: Record<Timeframe, number> = {
 
 // ─── Bayesian & Decay Helpers ──────────────────────────────────────
 
-function bayesianUpdate(p: number, logLR: number, cap: number = LOG_LR_CAP): number {
-  if (p <= 0.05 || p >= 0.95) return p;
+/**
+ * One log-odds update step. The result is clamped to [0.02, 0.98] so that
+ * contrary evidence can always move p back from the extremes.
+ */
+export function bayesianUpdate(p: number, logLR: number, cap: number = LOG_LR_CAP): number {
   const clampedLR = Math.max(Math.min(logLR, cap), -cap);
   const logOdds = Math.log(p / (1 - p));
   const newLogOdds = logOdds + clampedLR;
   const newOdds = Math.exp(newLogOdds);
-  return newOdds / (1 + newOdds);
+  return clamp(newOdds / (1 + newOdds), 0.02, 0.98);
 }
 
 function computeTemporalDecay(

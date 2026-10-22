@@ -84,17 +84,20 @@ tier = computeTier(pBullish)                     // 0.72/0.58/0.50
 
 ```typescript
 function bayesianUpdate(p: number, logLR: number, cap = 2.0): number {
-  if (p <= 0.05 || p >= 0.95) return p;
   const clampedLR = Math.max(Math.min(logLR, cap), -cap);
   const logOdds = Math.log(p / (1 - p));
   const newLogOdds = logOdds + clampedLR;
   const newOdds = Math.exp(newLogOdds);
-  return newOdds / (1 + newOdds);
+  return clamp(newOdds / (1 + newOdds), 0.02, 0.98);
 }
 ```
 
 The cap at ±2.0 prevents overconfidence explosion. With uncapped log-LR,
 4× signals at 0.60 each would reach 99.9% — the cap keeps it grounded.
+
+Each step clamps its result to [0.02, 0.98], so contrary evidence can always
+move p back from the extremes; the final [0.05, 0.95] clamp still applies to
+the reported probability.
 
 ### Evidence Constants (log-LR scale)
 

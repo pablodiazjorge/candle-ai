@@ -121,7 +121,7 @@ vi.mock('@ngx-translate/core', () => ({
   TranslateService: vi.fn(() => mockTranslateService),
 }));
 
-import { ConfluenceService } from './confluence.service';
+import { ConfluenceService, bayesianUpdate } from './confluence.service';
 import { TranslateService } from '@ngx-translate/core';
 import { Candle } from '../models/candle.model';
 import { DetectedPattern } from '../models/pattern.model';
@@ -451,6 +451,28 @@ describe('ConfluenceService', () => {
         makeRegime('strong_downtrend'), patterns, null, makeCandles(30, 'down'), 'TEST',
       );
       expect(result.probability).toBeGreaterThanOrEqual(0.05);
+    });
+  });
+
+  describe('bayesianUpdate', () => {
+    it('bearish evidence moves p down from 0.96', () => {
+      expect(bayesianUpdate(0.96, -0.6)).toBeLessThan(0.96);
+    });
+
+    it('bullish evidence moves p up from 0.04', () => {
+      expect(bayesianUpdate(0.04, 0.6)).toBeGreaterThan(0.04);
+    });
+
+    it('strong bullish evidence never pushes p above 0.98', () => {
+      for (const p of [0.5, 0.9, 0.97]) {
+        expect(bayesianUpdate(p, 2.0)).toBeLessThanOrEqual(0.98);
+      }
+    });
+
+    it('strong bearish evidence never pushes p below 0.02', () => {
+      for (const p of [0.5, 0.1, 0.03]) {
+        expect(bayesianUpdate(p, -2.0)).toBeGreaterThanOrEqual(0.02);
+      }
     });
   });
 
